@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	az "github.com/benmatselby/go-azuredevops/azuredevops"
@@ -36,6 +38,11 @@ type PullRequest struct {
 	URL         string             `json:"url"`
 	RemoteURL   string             `json:"remoteUrl"`
 	Reviewers   []User             `json:"reviewers"`
+}
+
+type PullRequestStat struct {
+	Name  string
+	Count int
 }
 
 // Repository represents a repository used by a build definition
@@ -98,6 +105,41 @@ func (r *AzureDevopsRepo) Refresh(count int) {
 	}
 
 	return
+}
+
+func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]PullRequestStat, int) {
+	fmt.Printf("Processing %v completed PRs.........\n", count)
+	r.Refresh(count)
+	prs := r.PullRequests
+
+	fmt.Println("PRs from", prs[len(prs)-1].ClosedDate)
+
+	// Iterate and create a map of reviewers[review-count]
+	m := make(map[string]int)
+	for _, pr := range prs {
+		for _, rv := range pr.Reviewers {
+			// filter for specific user and ensure we do not count PR creater approving their own PR
+			if !strings.Contains(rv.DisplayName, "AzLinux SAP HANA RP Devs") && rv.Vote != 0 && rv.DisplayName != pr.CreatedBy.DisplayName {
+				m[rv.DisplayName]++
+			}
+		}
+	}
+
+	// Sort the PRs by review count, by stuffing into a slice
+	max := 0
+	var pullRequestStat []PullRequestStat
+	for k, v := range m {
+		pullRequestStat = append(pullRequestStat, PullRequestStat{k, v})
+		if v > max {
+			max = v
+		}
+	}
+
+	sort.Slice(pullRequestStat, func(i, j int) bool {
+		return pullRequestStat[i].Count > pullRequestStat[j].Count
+	})
+
+	return pullRequestStat, max
 }
 
 func (r *AzureDevopsRepo) loadPullRequests(count int) error {
