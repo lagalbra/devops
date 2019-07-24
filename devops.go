@@ -24,16 +24,22 @@ func main() {
 	// Fetch PRs
 	count := 400
 	prStats, max := r.GetPullRequestReviewsByUser(count)
-	barmax := float32(100.0)
+	barmax := float32(80.0)
 	// Output!!
 	for _, ps := range prStats {
 		bar := int((barmax / float32(max)) * float32(ps.Count))
-		fmt.Printf("%30s %4d ", ps.Name, ps.Count)
-		for i := 0; i < bar; i++ {
-			fmt.Print("*")
+		percentage := float32(ps.Count) / float32(count) * 100.0
+		fmt.Printf("%30s %4d (%4.1f%%) ", ps.Name, ps.Count, percentage)
+		fmt.Print("[")
+		i := 0
+		for ; i < bar; i++ {
+			fmt.Print("#")
 		}
 
-		fmt.Println()
+		for ; i < int(barmax); i++ {
+			fmt.Print("-")
+		}
+		fmt.Print("]\n")
 	}
 
 }
