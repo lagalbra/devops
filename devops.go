@@ -10,7 +10,6 @@ import (
 // Docs
 // https://docs.microsoft.com/en-us/rest/api/azure/devops/git/pull%20requests/get%20pull%20requests?view=azure-devops-server-rest-4.1
 func main() {
-
 	// Fetch the access stuff from environment
 	acc := os.Getenv("AZUREDEVOPS_ACCOUNT")
 	proj := os.Getenv("AZUREDEVOPS_PROJECT")
@@ -19,7 +18,6 @@ func main() {
 
 	// Connect to repo
 	r := NewRepo(acc, proj, token, repo)
-	fmt.Println("Calling ", r.client.BaseURL)
 	if r.err != nil {
 		fmt.Println(r.err)
 		return
@@ -48,17 +46,28 @@ func main() {
 		Value int
 	}
 
+	max := 0
 	var kvs []kv
 	for k, v := range m {
 		kvs = append(kvs, kv{k, v})
+		if v > max {
+			max = v
+		}
 	}
 
 	sort.Slice(kvs, func(i, j int) bool {
 		return kvs[i].Value > kvs[j].Value
 	})
 
+	barmax := float32(100.0)
 	// Output!!
 	for _, kv := range kvs {
-		fmt.Println(kv.Key, kv.Value)
+		bar := int((barmax / float32(max)) * float32(kv.Value))
+		fmt.Printf("%30s %4d ", kv.Key, kv.Value)
+		for i := 0; i < bar; i++ {
+			fmt.Print("*")
+		}
+
+		fmt.Println()
 	}
 }
