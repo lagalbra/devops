@@ -24,10 +24,12 @@ func main() {
 	}
 
 	// Fetch PRs
-	count := 200
+	count := 400
 	fmt.Printf("Processing %v completed PRs.........\n", count)
 	r.Refresh(count)
 	prs := r.PullRequests
+
+	fmt.Println("PRs from", prs[len(prs)-1].ClosedDate)
 
 	// Iterate and create a map of reviewers[review-count]
 	m := make(map[string]int)
