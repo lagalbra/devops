@@ -6,7 +6,13 @@ Like any project I have big plans that I am sure I will abandon just after writi
 Build
 -----
 
-Clone the repo and run the following
+Clone the repo and for the first time
+```bash
+git clone https://github.com/abhinababasu/devops
+go get -v github.com/benmatselby/go-azuredevops/azuredevops
+```
+ 
+ Subsequently run the following
 
 ```bash
 go build

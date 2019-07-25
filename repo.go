@@ -40,7 +40,7 @@ type PullRequest struct {
 	Reviewers   []User             `json:"reviewers"`
 }
 
-type PullRequestStat struct {
+type ReviewerStat struct {
 	Name  string
 	Count int
 }
@@ -107,7 +107,7 @@ func (r *AzureDevopsRepo) Refresh(count int) {
 	return
 }
 
-func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]PullRequestStat, int) {
+func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]ReviewerStat, int) {
 	fmt.Printf("Processing %v completed PRs.........\n", count)
 	r.Refresh(count)
 	prs := r.PullRequests
@@ -115,31 +115,31 @@ func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]PullRequestS
 	fmt.Println("PRs from", prs[len(prs)-1].ClosedDate)
 
 	// Iterate and create a map of reviewers[review-count]
-	m := make(map[string]int)
+	review := make(map[string]int)
 	for _, pr := range prs {
 		for _, rv := range pr.Reviewers {
 			// filter for specific user and ensure we do not count PR creater approving their own PR
 			if !strings.Contains(rv.DisplayName, "AzLinux SAP HANA RP Devs") && rv.Vote != 0 && rv.DisplayName != pr.CreatedBy.DisplayName {
-				m[rv.DisplayName]++
+				review[rv.DisplayName]++
 			}
 		}
 	}
 
 	// Sort the PRs by review count, by stuffing into a slice
 	max := 0
-	var pullRequestStat []PullRequestStat
-	for k, v := range m {
-		pullRequestStat = append(pullRequestStat, PullRequestStat{k, v})
+	var reviewerStat []ReviewerStat
+	for k, v := range review {
+		reviewerStat = append(reviewerStat, ReviewerStat{k, v})
 		if v > max {
 			max = v
 		}
 	}
 
-	sort.Slice(pullRequestStat, func(i, j int) bool {
-		return pullRequestStat[i].Count > pullRequestStat[j].Count
+	sort.Slice(reviewerStat, func(i, j int) bool {
+		return reviewerStat[i].Count > reviewerStat[j].Count
 	})
 
-	return pullRequestStat, max
+	return reviewerStat, max
 }
 
 func (r *AzureDevopsRepo) loadPullRequests(count int) error {

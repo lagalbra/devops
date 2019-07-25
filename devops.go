@@ -23,13 +23,15 @@ func main() {
 
 	// Fetch PRs
 	count := 400
-	prStats, max := r.GetPullRequestReviewsByUser(count)
+	revStats, max := r.GetPullRequestReviewsByUser(count)
 	barmax := float32(80.0)
 	// Output!!
-	for _, ps := range prStats {
-		bar := int((barmax / float32(max)) * float32(ps.Count))
-		percentage := float32(ps.Count) / float32(count) * 100.0
-		fmt.Printf("%30s %4d (%4.1f%%) ", ps.Name, ps.Count, percentage)
+
+	fmt.Println("\nREVIEWER STATS\n")
+	for _, revStat := range revStats {
+		bar := int((barmax / float32(max)) * float32(revStat.Count))
+		percentage := float32(revStat.Count) / float32(count) * 100.0
+		fmt.Printf("%30s %4d (%4.1f%%) ", revStat.Name, revStat.Count, percentage)
 		fmt.Print("[")
 		i := 0
 		for ; i < bar; i++ {
