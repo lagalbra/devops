@@ -29,7 +29,17 @@ export AZUREDEVOPS_TOKEN=<your Azure DevOps token>
 export AZUREDEVOPS_REPO=<My cool repo>
 ```
 
-Then simply run 
+To just see PR reviwer details
+```bash
+./devops pr
+```
+
+Just see work item details (under-development, not yet working)
+```bash
+./devops wit
+```
+
+To see both
 ```bash
 ./devops
 ```
@@ -38,7 +48,7 @@ Output
 ------
 This fetches the last N pull requests and prints the reviwers and the number of PRs they have reviewed along. Sample output
 
-```bash
+```
 Using Account=msazure, Project=One
 Processing 400 completed PRs.........
 PRs from 2019-04-01 00:00:00.42 +0000 UTC
