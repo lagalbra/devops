@@ -12,8 +12,7 @@ func main() {
 	proj := os.Getenv("AZUREDEVOPS_PROJECT")
 	token := os.Getenv("AZUREDEVOPS_TOKEN")
 	repo := os.Getenv("AZUREDEVOPS_REPO")
-	//query := "7d5edeb8-b75f-4d26-a420-6c50c5c2d55c"
-	query := "0325c50f-3511-4266-a9fe-80b989492c76"
+
 	args := os.Args[1:]
 
 	showPr, showWork := false, false
@@ -30,22 +29,16 @@ func main() {
 	}
 
 	if showWork {
-		q := NewWork(acc, proj, token, query)
+		q := NewWork(acc, proj, token)
 		if q.err != nil {
 			fmt.Println(q.err)
 			return
 		}
 
-		fmt.Println("QueryName!!", q.Query.Name)
-
-		wits, err := q.RefreshWit(query)
-		if err != nil {
-			fmt.Println(q.err)
-			return
-		}
-
-		for _, w := range wits {
-			fmt.Println(w)
+		parentEpics := []int{4913314, 4806129, 4884022, 4884072, 4884120, 4669527, 4043454, 3904108,
+			3904063, 3904068, 3904071}
+		for _, epic := range parentEpics {
+			printEpicStat(q, epic)
 		}
 
 	}
@@ -80,5 +73,24 @@ func main() {
 			}
 			fmt.Print("]\n")
 		}
+	}
+}
+
+func printEpicStat(q *AzureDevopsWit, parentEpic int) {
+	epic, err := q.GetWorkitem(parentEpic)
+	if err != nil {
+		fmt.Println("Error!!!", err)
+		return
+	}
+
+	fmt.Printf("Fetching for %v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)
+	wits, err := q.RefreshWit(parentEpic)
+	if err != nil {
+		fmt.Println(q.err)
+		return
+	}
+
+	for _, w := range wits {
+		fmt.Println(w)
 	}
 }
