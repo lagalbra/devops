@@ -23,7 +23,7 @@ type WitQuery struct {
 type WitQueryResult struct {
 	QueryType    string              `json:"queryType"`
 	AsOf         string              `json:"asOf"`
-	WorkItems    []WorkItem              `json:"workItems,omitempty"`
+	WorkItems    []WorkItem          `json:"workItems,omitempty"`
 	WitRelations []WorkItemRelations `json:"workItemRelations,omitempty"`
 }
 
@@ -92,6 +92,9 @@ func (r *AzureDevopsWit) RefreshWit(queryId string) ([]WitStateCount, error) {
 
 	m := make(map[string]int)
 	for _, w := range wits {
+		if w.Type == "Epic" { // don't count the epics
+			continue
+		}
 		m[w.State]++
 	}
 	states := make([]WitStateCount, len(m))
