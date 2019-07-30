@@ -20,13 +20,38 @@ type WitQuery struct {
 	Name string `json:"name,omitempty"`
 }
 
-func NewWork(account, project, token, queryName string) (r *AzureDevopsWit) {
+type WitQueryResult struct {
+	QueryType string `json:"queryType"`
+	AsOf      string `json:"asOf"`
+	WorkItems []Wits `json:"workItems"`
+}
+
+type Wits struct {
+	Id    int `json:"id"`
+	State string
+}
+
+type WorkItem struct {
+	Id        int    `json:"id"`
+	WitFields Fields `json:"fields"`
+}
+
+type Fields struct {
+	State string `json:"System.State"`
+}
+
+type WitStateCount struct {
+	State string
+	Count int
+}
+
+func NewWork(account, project, token, queryId string) (r *AzureDevopsWit) {
 	r = &AzureDevopsWit{}
 	r.client = constructClientFromConfig(account, project, token)
 
 	URL := fmt.Sprintf(
 		"_apis/wit/queries/%s?api-version=4.1",
-		url.PathEscape(queryName),
+		url.PathEscape(queryId),
 	)
 
 	var witQuery WitQuery
@@ -46,15 +71,59 @@ func NewWork(account, project, token, queryName string) (r *AzureDevopsWit) {
 	return
 }
 
-func (r *AzureDevopsRepo) RefreshWit(count int) {
-	var errs []error
-	if err := r.loadPullRequests(count); err != nil {
-		errs = append(errs, err)
+func (r *AzureDevopsWit) RefreshWit(queryId string) ([]Wits, error) {
+	w, err := r.loadWorkitems(queryId)
+	if err != nil {
+		return nil, err
 	}
 
-	if len(errs) != 0 {
-		r.err = fmt.Errorf("Error(s) occurred: %v", errs)
+	return w, nil
+}
+
+func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]Wits, error) {
+	// https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query%20by%20id?view=azure-devops-rest-4.1
+	URL := fmt.Sprintf("_apis/wit/wiql/%s?api-version=4.1", queryId)
+
+	request, err := r.client.NewRequest("GET", URL, nil)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
 	}
 
-	return
+	var response WitQueryResult // PullRequestsResponse
+	_, err = r.client.Execute(request, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, w := range response.WorkItems {
+
+		wi, err := r.getWorkitem(w.Id)
+		if err != nil {
+			fmt.Printf("Error fetching workitem %v: %v", wi.Id, err)
+			w.State = "Unknown"
+		} else {
+			response.WorkItems[i].State = wi.WitFields.State
+		}
+
+	}
+	return response.WorkItems, nil
+}
+
+func (r *AzureDevopsWit) getWorkitem(witId int) (WorkItem, error) {
+	var wi WorkItem
+	URL := fmt.Sprintf("_apis/wit/workitems/%v?api-version=4.1", witId)
+
+	req, err := r.client.NewRequest("GET", URL, nil)
+	if err != nil {
+		fmt.Println(err)
+		return wi, err
+	}
+
+	_, err = r.client.Execute(req, &wi)
+	if err != nil {
+		return wi, err
+	}
+
+	return wi, nil
 }

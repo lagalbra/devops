@@ -173,7 +173,7 @@ func (r *AzureDevopsRepo) loadPullRequests(count int) error {
 }
 
 func constructClientFromConfig(account, project, token string) *az.Client {
-	fmt.Printf("Using Account=%v, Project=%v\n", account, project)
+	//fmt.Printf("Using Account=%v, Project=%v\n", account, project)
 	return az.NewClient(account, project, token)
 }
 

@@ -36,7 +36,18 @@ func main() {
 			return
 		}
 
-		fmt.Println(q.Query.ID, q.Query.Name)
+		fmt.Println("QueryName!!", q.Query.Name)
+
+		wits, err := q.RefreshWit(query)
+		if err != nil {
+			fmt.Println(q.err)
+			return
+		}
+
+		for _, w := range wits {
+			fmt.Println(w)
+		}
+
 	}
 
 	// Connect to repo
