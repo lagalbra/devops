@@ -12,8 +12,8 @@ func main() {
 	proj := os.Getenv("AZUREDEVOPS_PROJECT")
 	token := os.Getenv("AZUREDEVOPS_TOKEN")
 	repo := os.Getenv("AZUREDEVOPS_REPO")
-	query := "7d5edeb8-b75f-4d26-a420-6c50c5c2d55c"
-	//query := "1a31aed5-8dfa-4ff6-9c93-2220b72bac9a"
+	//query := "7d5edeb8-b75f-4d26-a420-6c50c5c2d55c"
+	query := "0325c50f-3511-4266-a9fe-80b989492c76"
 	args := os.Args[1:]
 
 	showPr, showWork := false, false

@@ -21,23 +21,36 @@ type WitQuery struct {
 }
 
 type WitQueryResult struct {
-	QueryType string `json:"queryType"`
-	AsOf      string `json:"asOf"`
-	WorkItems []Wits `json:"workItems"`
+	QueryType    string              `json:"queryType"`
+	AsOf         string              `json:"asOf"`
+	WorkItems    []WorkItem              `json:"workItems,omitempty"`
+	WitRelations []WorkItemRelations `json:"workItemRelations,omitempty"`
 }
 
-type Wits struct {
-	Id    int `json:"id"`
-	State string
+type WorkItemRelations struct {
+	Target WitTarget `json:"target"`
+}
+
+type WitTarget struct {
+	Id int `json:"id"`
 }
 
 type WorkItem struct {
+	Id    int `json:"id"`
+	State string
+	Type  string
+	Title string
+}
+
+type WorkItemInternal struct {
 	Id        int    `json:"id"`
 	WitFields Fields `json:"fields"`
 }
 
 type Fields struct {
 	State string `json:"System.State"`
+	Type  string `json:"System.WorkItemType"`
+	Title string `json:"System.Title"`
 }
 
 type WitStateCount struct {
@@ -80,7 +93,6 @@ func (r *AzureDevopsWit) RefreshWit(queryId string) ([]WitStateCount, error) {
 	m := make(map[string]int)
 	for _, w := range wits {
 		m[w.State]++
-		//fmt.Println(w)
 	}
 	states := make([]WitStateCount, len(m))
 	i := 0
@@ -91,7 +103,7 @@ func (r *AzureDevopsWit) RefreshWit(queryId string) ([]WitStateCount, error) {
 	return states, nil
 }
 
-func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]Wits, error) {
+func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]WorkItem, error) {
 	// https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query%20by%20id?view=azure-devops-rest-4.1
 	URL := fmt.Sprintf("_apis/wit/wiql/%s?api-version=4.1", queryId)
 
@@ -107,32 +119,34 @@ func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]Wits, error) {
 		return nil, err
 	}
 
-	for i, w := range response.WorkItems {
-		wi, err := r.getWorkitem(w.Id)
+	var workItems []WorkItem
+
+	for _, w := range response.WitRelations {
+		wi, err := r.getWorkitem(w.Target.Id)
 		if err != nil {
 			fmt.Printf("Error fetching workitem %v: %v", wi.Id, err)
-			w.State = "Unknown"
-		} else {
-			response.WorkItems[i].State = wi.WitFields.State
 		}
+		workItems = append(workItems, wi)
+
 	}
-	return response.WorkItems, nil
+
+	return workItems, nil
 }
 
 func (r *AzureDevopsWit) getWorkitem(witId int) (WorkItem, error) {
-	var wi WorkItem
+	var wi WorkItemInternal
 	URL := fmt.Sprintf("_apis/wit/workitems/%v?api-version=4.1", witId)
 
 	req, err := r.client.NewRequest("GET", URL, nil)
 	if err != nil {
 		fmt.Println(err)
-		return wi, err
+		return WorkItem{}, err
 	}
 
 	_, err = r.client.Execute(req, &wi)
 	if err != nil {
-		return wi, err
+		return WorkItem{}, err
 	}
 
-	return wi, nil
+	return WorkItem{wi.Id, wi.WitFields.State, wi.WitFields.Type, wi.WitFields.Title}, nil
 }
