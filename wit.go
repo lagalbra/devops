@@ -71,13 +71,24 @@ func NewWork(account, project, token, queryId string) (r *AzureDevopsWit) {
 	return
 }
 
-func (r *AzureDevopsWit) RefreshWit(queryId string) ([]Wits, error) {
-	w, err := r.loadWorkitems(queryId)
+func (r *AzureDevopsWit) RefreshWit(queryId string) ([]WitStateCount, error) {
+	wits, err := r.loadWorkitems(queryId)
 	if err != nil {
 		return nil, err
 	}
 
-	return w, nil
+	m := make(map[string]int)
+	for _, w := range wits {
+		m[w.State]++
+		//fmt.Println(w)
+	}
+	states := make([]WitStateCount, len(m))
+	i := 0
+	for k, v := range m {
+		states[i] = WitStateCount{k, v}
+		i++
+	}
+	return states, nil
 }
 
 func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]Wits, error) {
@@ -97,7 +108,6 @@ func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]Wits, error) {
 	}
 
 	for i, w := range response.WorkItems {
-
 		wi, err := r.getWorkitem(w.Id)
 		if err != nil {
 			fmt.Printf("Error fetching workitem %v: %v", wi.Id, err)
@@ -105,7 +115,6 @@ func (r *AzureDevopsWit) loadWorkitems(queryId string) ([]Wits, error) {
 		} else {
 			response.WorkItems[i].State = wi.WitFields.State
 		}
-
 	}
 	return response.WorkItems, nil
 }
