@@ -103,21 +103,21 @@ func (r *AzureDevopsWit) loadWorkitems(parentEpic int) ([]WorkItem, error) {
     [System.AssignedTo],
     [System.State],
     [System.Tags]
-FROM workitemLinks
-WHERE
-    (
-        [Source].[System.TeamProject] = @project
-        AND [Source].[System.WorkItemType] <> ''
-        AND [Source].[System.Id] = %v
-    )
-    AND (
-        [System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
-    )
-    AND (
-        [Target].[System.TeamProject] = @project
-        AND [Target].[System.WorkItemType] <> ''
-    )
-MODE (Recursive)
+	FROM workitemLinks
+	WHERE
+		(
+			[Source].[System.TeamProject] = @project
+			AND [Source].[System.WorkItemType] <> ''
+			AND [Source].[System.Id] = %v
+		)
+		AND (
+			[System.Links.LinkType] = 'System.LinkTypes.Hierarchy-Forward'
+		)
+		AND (
+			[Target].[System.TeamProject] = @project
+			AND [Target].[System.WorkItemType] <> ''
+		)
+	MODE (Recursive)
 	`
 	var wiqlQuery WiqlQuery
 	wiqlQuery.Query = fmt.Sprintf(body, parentEpic)
