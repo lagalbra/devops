@@ -39,11 +39,6 @@ Just see work item details (under-development, not yet working)
 ./devops wit
 ```
 
-To see both
-```bash
-./devops
-```
-
 Output
 ------
 This fetches the last N pull requests and prints the reviwers and the number of PRs they have reviewed along. Sample output

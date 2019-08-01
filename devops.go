@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 )
 
@@ -16,15 +15,13 @@ func main() {
 
 	args := os.Args[1:]
 
-	showPr, showWork := false, false
-	if len(args) == 0 {
-		showPr, showWork = true, true
-	}
+	var showPr, showWork bool
 
 	for _, a := range args {
-		if strings.EqualFold(a, "pr") {
+		switch a {
+		case "pr":
 			showPr = true
-		} else if strings.EqualFold(a, "wit") {
+		case "wit":
 			showWork = true
 		}
 	}
@@ -67,8 +64,14 @@ func main() {
 }
 
 func showWorkStats(acc, proj, token string) {
-	parentEpics := []int{4913314, 4806129, 4884022, 4884072, 4884120, 4669527, 4043454, 3904108,
-		3904063, 3904068, 3904071}
+	// Get the list of epics from a epic's only query
+	parentEpics, err := getEpics(acc, proj, token, "0325c50f-3511-4266-a9fe-80b989492c76")
+	if err != nil {
+		fmt.Println("Error getting list of epics:", err)
+		return
+	}
+
+	// For each epic start a go-routine and fetch all workitems that are child of it
 	var wg sync.WaitGroup
 	m := &sync.Mutex{}
 	for _, epic := range parentEpics {
@@ -76,18 +79,24 @@ func showWorkStats(acc, proj, token string) {
 		go func(epic int, m *sync.Mutex) {
 			defer wg.Done()
 			printEpicStat(acc, proj, token, epic, m)
-		}(epic, m)
+		}(epic.Id, m)
 	}
 
 	wg.Wait()
 }
 
+func getEpics(acc, proj, token, queryID string) ([]WorkItem, error) {
+	q := NewWork(acc, proj, token)
+	epics, err := q.GetWorkitems(queryID)
+	if err != nil {
+		return nil, err
+	}
+
+	return epics, nil
+}
+
 func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 	q := NewWork(acc, proj, token)
-	if q.err != nil {
-		fmt.Println(q.err)
-		return
-	}
 
 	fmt.Printf("Fetching %v\n", parentEpic)
 	epic, err := q.GetWorkitem(parentEpic)
@@ -101,7 +110,7 @@ func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 	defer m.Unlock()
 	fmt.Printf("%v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)
 	if err != nil {
-		fmt.Println(q.err)
+		fmt.Println(err)
 		return
 	}
 

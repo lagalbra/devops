@@ -10,7 +10,6 @@ import (
 
 type AzureDevopsWit struct {
 	client *az.Client
-	err    error
 }
 
 type WitQuery struct {
@@ -69,6 +68,36 @@ func NewWork(account, project, token string) (r *AzureDevopsWit) {
 	return
 }
 
+func (r *AzureDevopsWit) GetWorkitems(queryId string) ([]WorkItem, error) {
+	// https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/wiql/query%20by%20id?view=azure-devops-rest-4.1
+	URL := fmt.Sprintf("_apis/wit/wiql/%s?api-version=4.1", queryId)
+
+	request, err := r.client.NewRequest("GET", URL, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var response WitQueryResult // PullRequestsResponse
+	_, err = r.client.Execute(request, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	var workItems []WorkItem
+
+	for _, w := range response.WorkItems {
+		wi, err := r.GetWorkitem(w.Id)
+		if err != nil {
+			return nil, err
+		}
+		workItems = append(workItems, wi)
+
+	}
+
+	return workItems, nil
+}
+
 func (r *AzureDevopsWit) RefreshWit(parentEpic int) ([]WitStateCount, error) {
 	wits, err := r.loadWorkitems(parentEpic)
 	if err != nil {
@@ -124,7 +153,6 @@ func (r *AzureDevopsWit) loadWorkitems(parentEpic int) ([]WorkItem, error) {
 	request, err := r.client.NewRequest("POST", URL, wiqlQuery)
 
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -139,10 +167,10 @@ func (r *AzureDevopsWit) loadWorkitems(parentEpic int) ([]WorkItem, error) {
 	for _, w := range response.WitRelations {
 		wi, err := r.GetWorkitem(w.Target.Id)
 		if err != nil {
-			fmt.Printf("Error fetching workitem %v: %v", wi.Id, err)
+			return nil, err
 		}
-		workItems = append(workItems, wi)
 
+		workItems = append(workItems, wi)
 	}
 
 	return workItems, nil
@@ -154,7 +182,6 @@ func (r *AzureDevopsWit) GetWorkitem(witId int) (WorkItem, error) {
 
 	req, err := r.client.NewRequest("GET", URL, nil)
 	if err != nil {
-		fmt.Println(err)
 		return WorkItem{}, err
 	}
 
