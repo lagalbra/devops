@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"image"
 	"image/color"
+	"log"
+	"net/url"
 	"os"
 	"sync"
 
+	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/llgcode/draw2d"
 	"github.com/llgcode/draw2d/draw2dimg"
 )
@@ -21,6 +25,8 @@ func main() {
 	proj := os.Getenv("AZUREDEVOPS_PROJECT")
 	token := os.Getenv("AZUREDEVOPS_TOKEN")
 	repo := os.Getenv("AZUREDEVOPS_REPO")
+	azStorageAcc := os.Getenv("AZURE_STORAGE_ACCOUNT")
+	azStorageKey := os.Getenv("AZURE_STORAGE_ACCESS_KEY")
 
 	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
 	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
@@ -34,19 +40,8 @@ func main() {
 
 	// Connect to repo
 	if prCount > 0 {
-		showPrStats(acc, proj, token, repo, prCount)
+		showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
 	}
-
-	/*rs := []ReviewerStat{
-		{
-			"Abhi", 20,
-		},
-		{
-			"01234567890123456789012345678943243224", 10,
-		},
-	}
-	savePrStatImage(rs, 40, "img.png")
-	*/
 }
 
 func showWorkStats(acc, proj, token string) {
@@ -113,7 +108,7 @@ func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 	}
 }
 
-func showPrStats(acc, proj, token, repo string, count int) {
+func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) {
 	r := NewRepo(acc, proj, token, repo)
 	if r.err != nil {
 		fmt.Println(r.err)
@@ -144,7 +139,9 @@ func showPrStats(acc, proj, token, repo string, count int) {
 		fmt.Print("]\n")
 	}
 
-	savePrStatImage(revStats, count, "revstat.png")
+	fileName := "revstat.png"
+	savePrStatImage(revStats, count, fileName)
+	uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
 }
 
 func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) {
@@ -222,5 +219,46 @@ func drawRect(gc *draw2dimg.GraphicContext, x, y, w, h float64, lineColor, fillC
 	gc.LineTo(x, y)
 	gc.Close()
 	gc.FillStroke()
+}
 
+func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
+	// Create a default request pipeline using your storage account name and account key.
+	credential, err := azblob.NewSharedKeyCredential(azStorageAcc, azStorageKey)
+	if err != nil {
+		log.Fatal("Invalid credentials with error: " + err.Error())
+	}
+	p := azblob.NewPipeline(credential, azblob.PipelineOptions{})
+	// Create a random string for the quick start container
+	containerName := "containerdevops"
+
+	// From the Azure portal, get your storage account blob service URL endpoint.
+	URL, _ := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net/%s", azStorageAcc, containerName))
+	containerURL := azblob.NewContainerURL(*URL, p)
+
+	fmt.Printf("Creating a container named %s\n", containerName)
+	ctx := context.Background() // This example uses a never-expiring context
+	_, err = containerURL.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
+
+	if err != nil {
+		if err, ok := err.(azblob.StorageError); ok {
+			if err.ServiceCode() != "ContainerAlreadyExists" {
+				fmt.Println("Unknown Error creating container", err)
+				return
+			}
+		}
+	}
+
+	blobURL := containerURL.NewBlockBlobURL(fileName)
+	file, err := os.Open(fileName)
+
+	// BUGBUG: The content type is not image/png as it should be
+	fmt.Printf("Uploading the file with blob name: %s\n", fileName)
+	_, err = azblob.UploadFileToBlockBlob(ctx, file, blobURL, azblob.UploadToBlockBlobOptions{
+		BlockSize:   4 * 1024 * 1024,
+		Parallelism: 16})
+
+	if err != nil {
+		fmt.Println("Error uploading!!!", err)
+		return
+	}
 }
