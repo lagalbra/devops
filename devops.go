@@ -1,10 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"sync"
 )
+
+var showWork, showPr, verbose bool
+var prCount int
 
 func main() {
 	// Fetch the access stuff from environment
@@ -13,59 +17,30 @@ func main() {
 	token := os.Getenv("AZUREDEVOPS_TOKEN")
 	repo := os.Getenv("AZUREDEVOPS_REPO")
 
-	args := os.Args[1:]
+	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
+	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
+	flag.BoolVar(&verbose, "v", false, "Show verbose output")
 
-	var showPr, showWork bool
-
-	for _, a := range args {
-		switch a {
-		case "pr":
-			showPr = true
-		case "wit":
-			showWork = true
-		}
-	}
+	flag.Parse()
 
 	if showWork {
 		showWorkStats(acc, proj, token)
 	}
 
 	// Connect to repo
-	if showPr {
-		r := NewRepo(acc, proj, token, repo)
-		if r.err != nil {
-			fmt.Println(r.err)
-			return
-		}
-
-		// Fetch PRs
-		count := 400
-		revStats, max := r.GetPullRequestReviewsByUser(count)
-		barmax := float32(80.0)
-		// Output!!
-
-		fmt.Println("\nREVIEWER STATS\n")
-		for _, revStat := range revStats {
-			bar := int((barmax / float32(max)) * float32(revStat.Count))
-			percentage := float32(revStat.Count) / float32(count) * 100.0
-			fmt.Printf("%30s %4d (%4.1f%%) ", revStat.Name, revStat.Count, percentage)
-			fmt.Print("[")
-			i := 0
-			for ; i < bar; i++ {
-				fmt.Print("#")
-			}
-
-			for ; i < int(barmax); i++ {
-				fmt.Print("-")
-			}
-			fmt.Print("]\n")
-		}
+	if prCount > 0 {
+		showPrStats(acc, proj, token, repo, prCount)
 	}
 }
 
 func showWorkStats(acc, proj, token string) {
 	// Get the list of epics from a epic's only query
-	parentEpics, err := getEpics(acc, proj, token, "0325c50f-3511-4266-a9fe-80b989492c76")
+	epicWitQuery := "0325c50f-3511-4266-a9fe-80b989492c76"
+	if verbose {
+		fmt.Printf("Fetching epics using query %v\n", epicWitQuery)
+	}
+
+	parentEpics, err := getEpics(acc, proj, token, epicWitQuery)
 	if err != nil {
 		fmt.Println("Error getting list of epics:", err)
 		return
@@ -75,6 +50,10 @@ func showWorkStats(acc, proj, token string) {
 	var wg sync.WaitGroup
 	m := &sync.Mutex{}
 	for _, epic := range parentEpics {
+		if verbose {
+			fmt.Printf("Fetching epic %v: %v\n", epic.Id, epic.Title)
+		}
+
 		wg.Add(1)
 		go func(epic int, m *sync.Mutex) {
 			defer wg.Done()
@@ -98,7 +77,6 @@ func getEpics(acc, proj, token, queryID string) ([]WorkItem, error) {
 func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 	q := NewWork(acc, proj, token)
 
-	fmt.Printf("Fetching %v\n", parentEpic)
 	epic, err := q.GetWorkitem(parentEpic)
 	if err != nil {
 		fmt.Println("Error!!!", err)
@@ -116,5 +94,35 @@ func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 
 	for _, w := range wits {
 		fmt.Println(w)
+	}
+}
+
+func showPrStats(acc, proj, token, repo string, count int) {
+	r := NewRepo(acc, proj, token, repo)
+	if r.err != nil {
+		fmt.Println(r.err)
+		return
+	}
+
+	// Fetch PRs
+	revStats, max := r.GetPullRequestReviewsByUser(count)
+	barmax := float32(80.0)
+	// Output!!
+
+	fmt.Println("\nREVIEWER STATS\n")
+	for _, revStat := range revStats {
+		bar := int((barmax / float32(max)) * float32(revStat.Count))
+		percentage := float32(revStat.Count) / float32(count) * 100.0
+		fmt.Printf("%30s %4d (%4.1f%%) ", revStat.Name, revStat.Count, percentage)
+		fmt.Print("[")
+		i := 0
+		for ; i < bar; i++ {
+			fmt.Print("#")
+		}
+
+		for ; i < int(barmax); i++ {
+			fmt.Print("-")
+		}
+		fmt.Print("]\n")
 	}
 }

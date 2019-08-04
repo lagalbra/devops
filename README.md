@@ -29,14 +29,19 @@ export AZUREDEVOPS_TOKEN=<your Azure DevOps token>
 export AZUREDEVOPS_REPO=<My cool repo>
 ```
 
-To just see PR reviwer details
+See the command line help
 ```bash
-./devops pr
+./devops -h
+```
+
+To just see PR reviewer details for the last 100 prs
+```bash
+./devops -pr 100
 ```
 
 Just see work item details (under-development, not yet working)
 ```bash
-./devops wit
+./devops -wit
 ```
 
 Output
