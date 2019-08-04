@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"time"
 
 	"github.com/llgcode/draw2d"
 	"github.com/llgcode/draw2d/draw2dimg"
@@ -16,7 +17,9 @@ func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) {
 
 	nReviewers := len(reviewers)
 	w := 1000.0
-	h := 20.0*float64(nReviewers) + 50.0
+
+	// dedicate pixel for header, then per row and then footer
+	h := 50.0 + 20.0*float64(nReviewers) + 20.0
 	// Initialize the graphic context on an RGBA image
 	dest := image.NewRGBA(image.Rect(0, 0, int(w), int(h)))
 	gc := draw2dimg.NewGraphicContext(dest)
@@ -24,7 +27,7 @@ func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) {
 	// Font stuff setup
 	draw2d.SetFontFolder(".")
 
-	// Draw the border and title
+	// Draw the border and title/header
 	gc.SetFontSize(14)
 	drawRect(gc, 0, 0, w, h, image.Black, image.White)
 	str := fmt.Sprintf("Reviewer Stats for %v pull requests", prCount)
@@ -69,6 +72,15 @@ func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) {
 
 		y += 20
 	}
+
+	// Write the footer justified to right margin
+	str = fmt.Sprintf("Generated on %v", time.Now().Format("01-02-2006 15:04:05"))
+	gc.SetFontSize(8)
+	gc.SetFillColor(color.Black)
+	l, _, r, _ := gc.GetStringBounds(str)
+	sw := r - l // width of the text
+	gc.FillStringAt(str, w-sw-10, h-10)
+
 	draw2dimg.SaveToPngFile(fileName, dest)
 	fmt.Println("Generated", fileName)
 }
