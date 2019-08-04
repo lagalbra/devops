@@ -251,10 +251,12 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
 	blobURL := containerURL.NewBlockBlobURL(fileName)
 	file, err := os.Open(fileName)
 
-	// BUGBUG: The content type is not image/png as it should be
 	fmt.Printf("Uploading the file with blob name: %s\n", fileName)
 	_, err = azblob.UploadFileToBlockBlob(ctx, file, blobURL, azblob.UploadToBlockBlobOptions{
-		BlockSize:   4 * 1024 * 1024,
+		BlockSize: 4 * 1024 * 1024,
+		BlobHTTPHeaders: azblob.BlobHTTPHeaders{
+			ContentType: "image/png",
+		},
 		Parallelism: 16})
 
 	if err != nil {
