@@ -19,24 +19,29 @@ func main() {
 	azStorageAcc := os.Getenv("AZURE_STORAGE_ACCOUNT")
 	azStorageKey := os.Getenv("AZURE_STORAGE_ACCESS_KEY")
 
+	// Setup command line parsing
 	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
 	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
 	flag.BoolVar(&verbose, "v", false, "Show verbose output")
 	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
-
 	flag.Parse()
 
 	if showWork {
-		showWorkStats(acc, proj, token)
+		err := showWorkStats(acc, proj, token)
+		if err != nil {
+			fmt.Println("Error fetching work stats!!", err)
+		}
 	}
 
-	// Connect to repo
 	if prCount > 0 {
-		showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
+		err := showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
+		if err != nil {
+			fmt.Println("Error fetching pull-request stats!!", err)
+		}
 	}
 }
 
-func showWorkStats(acc, proj, token string) {
+func showWorkStats(acc, proj, token string) error {
 	// Get the list of epics from a epic's only query
 	epicWitQuery := "0325c50f-3511-4266-a9fe-80b989492c76"
 	if verbose {
@@ -45,8 +50,7 @@ func showWorkStats(acc, proj, token string) {
 
 	parentEpics, err := getEpics(acc, proj, token, epicWitQuery)
 	if err != nil {
-		fmt.Println("Error getting list of epics:", err)
-		return
+		return err
 	}
 
 	// For each epic start a go-routine and fetch all workitems that are child of it
@@ -65,6 +69,7 @@ func showWorkStats(acc, proj, token string) {
 	}
 
 	wg.Wait()
+	return nil
 }
 
 func getEpics(acc, proj, token, queryID string) ([]WorkItem, error) {
@@ -100,11 +105,10 @@ func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 	}
 }
 
-func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) {
+func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) error {
 	r := NewRepo(acc, proj, token, repo)
 	if r.err != nil {
-		fmt.Println(r.err)
-		return
+		return r.err
 	}
 
 	// Fetch PRs
@@ -132,9 +136,22 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 	}
 
 	fileName := "revstat.png"
-	savePrStatImage(revStats, count, fileName)
+	err := savePrStatImage(revStats, count, fileName)
+
+	if err != nil {
+		return err
+	}
 
 	if !noUpload {
-		uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
+		url, err := uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
+		if err != nil {
+			return err
+		}
+
+		if verbose {
+			fmt.Println("Uploaded to", url)
+		}
 	}
+
+	return nil
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/llgcode/draw2d/draw2dimg"
 )
 
-func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) {
+func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) error {
 	if verbose {
 		fmt.Println("Generating image ", fileName)
 	}
@@ -81,8 +81,16 @@ func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) {
 	sw := r - l // width of the text
 	gc.FillStringAt(str, w-sw-10, h-10)
 
-	draw2dimg.SaveToPngFile(fileName, dest)
-	fmt.Println("Generated", fileName)
+	err := draw2dimg.SaveToPngFile(fileName, dest)
+	if err != nil {
+		return err
+	}
+
+	if verbose {
+		fmt.Println("Generated", fileName)
+	}
+
+	return nil
 }
 
 func drawRect(gc *draw2dimg.GraphicContext, x, y, w, h float64, lineColor, fillColor color.Color) {

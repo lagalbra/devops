@@ -10,7 +10,7 @@ import (
 	"github.com/Azure/azure-storage-blob-go/azblob"
 )
 
-func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
+func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) (string, error) {
 	// Create a default request pipeline using your storage account name and account key.
 	credential, err := azblob.NewSharedKeyCredential(azStorageAcc, azStorageKey)
 	if err != nil {
@@ -24,7 +24,6 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
 	URL, _ := url.Parse(fmt.Sprintf("https://%s.blob.core.windows.net/%s", azStorageAcc, containerName))
 	containerURL := azblob.NewContainerURL(*URL, p)
 
-	fmt.Printf("Creating a container named %s\n", containerName)
 	ctx := context.Background() // This example uses a never-expiring context
 	_, err = containerURL.Create(ctx, azblob.Metadata{}, azblob.PublicAccessNone)
 
@@ -32,7 +31,7 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
 		if err, ok := err.(azblob.StorageError); ok {
 			if err.ServiceCode() != "ContainerAlreadyExists" {
 				fmt.Println("Unknown Error creating container", err)
-				return
+				return "", err
 			}
 		}
 	}
@@ -40,7 +39,10 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
 	blobURL := containerURL.NewBlockBlobURL(fileName)
 	file, err := os.Open(fileName)
 
-	fmt.Printf("Uploading the file with blob name: %s\n", fileName)
+	if verbose {
+		fmt.Printf("Uploading the file with blob name: %s\n", fileName)
+	}
+
 	_, err = azblob.UploadFileToBlockBlob(ctx, file, blobURL, azblob.UploadToBlockBlobOptions{
 		BlockSize: 4 * 1024 * 1024,
 		BlobHTTPHeaders: azblob.BlobHTTPHeaders{
@@ -49,7 +51,8 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) {
 		Parallelism: 16})
 
 	if err != nil {
-		fmt.Println("Error uploading!!!", err)
-		return
+		return "", err
 	}
+
+	return blobURL.String(), nil
 }
