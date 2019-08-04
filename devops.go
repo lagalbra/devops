@@ -7,7 +7,7 @@ import (
 	"sync"
 )
 
-var showWork, showPr, verbose bool
+var showWork, showPr, verbose, noUpload bool
 var prCount int
 
 func main() {
@@ -22,6 +22,7 @@ func main() {
 	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
 	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
 	flag.BoolVar(&verbose, "v", false, "Show verbose output")
+	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
 
 	flag.Parse()
 
@@ -132,5 +133,8 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 
 	fileName := "revstat.png"
 	savePrStatImage(revStats, count, fileName)
-	uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
+
+	if !noUpload {
+		uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
+	}
 }
