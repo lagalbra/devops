@@ -10,6 +10,13 @@ import (
 	"github.com/llgcode/draw2d/draw2dimg"
 )
 
+var (
+	WitNotDoneColor    = color.RGBA{0xff, 0xaa, 0xaa, 0xff} // reddish
+	WitInProgressColor = color.RGBA{0xff, 0xff, 0xa0, 0xff} // yellowish
+	WitDoneColor       = color.RGBA{0, 0xad, 0, 0xff}       // greenish
+	WitUnKnownColor    = color.RGBA{0xaa, 0, 0xff, 0xff}    // purplish
+)
+
 // ================================================================================================
 // PR related images
 func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) error {
@@ -179,19 +186,19 @@ func drawEpicStat(gc *draw2dimg.GraphicContext, es EpicStat, maxCount int, x, y,
 
 	w -= 20.0 // actual width to use
 	barW := (w / float64(maxCount)) * float64(done)
-	drawRect(gc, x, y, barW, barH, color.Black, color.RGBA{0, 0xff, 0, 0xff})
+	drawRect(gc, x, y, barW, barH, color.Black, WitDoneColor)
 	x += barW
 
 	barW = (w / float64(maxCount)) * float64(progress)
-	drawRect(gc, x, y, barW, barH, color.Black, color.RGBA{0xff, 0xff, 0x90, 0xff})
+	drawRect(gc, x, y, barW, barH, color.Black, WitInProgressColor)
 	x += barW
 
 	barW = (w / float64(maxCount)) * float64(notdone)
-	drawRect(gc, x, y, barW, barH, color.Black, color.RGBA{0xff, 0, 0, 0xff})
+	drawRect(gc, x, y, barW, barH, color.Black, WitNotDoneColor)
 	x += barW
 
 	barW = (w / float64(maxCount)) * float64(unknown)
-	drawRect(gc, x, y, barW, barH, color.Black, color.RGBA{0x90, 0, 0xff, 0xff})
+	drawRect(gc, x, y, barW, barH, color.Black, WitUnKnownColor)
 	x += barW
 
 	y += barH
