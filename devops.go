@@ -7,11 +7,6 @@ import (
 	"sync"
 )
 
-type EpicStat struct {
-	Epic  WorkItem
-	Stats []WitStateCount
-}
-
 var showWork, showPr, verbose, noUpload bool
 var prCount int
 var semesterFilter bool
@@ -35,7 +30,7 @@ func main() {
 	flag.Parse()
 
 	if showWork {
-		err := showWorkStats(acc, proj, token)
+		err := showWorkStats(acc, proj, token, azStorageAcc, azStorageKey)
 		if err != nil {
 			fmt.Println("Error fetching work stats!!", err)
 		}
@@ -49,7 +44,9 @@ func main() {
 	}
 }
 
-func showWorkStats(acc, proj, token string) error {
+// ================================================================================================
+// Workitem
+func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string) error {
 	// Get the list of epics from a epic's only query
 	epicWitQuery := "0325c50f-3511-4266-a9fe-80b989492c76"
 	if verbose {
@@ -100,9 +97,28 @@ func showWorkStats(acc, proj, token string) error {
 		fmt.Printf("%v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)
 
 		for _, w := range e.Stats {
-			fmt.Println(w)
+			fmt.Printf(" %v:%v", w.State, w.Count)
+		}
+		fmt.Println()
+	}
+
+	fileName := "epicstat.png"
+	err = saveWitStatImage(epicStats, fileName)
+	if err != nil {
+		return err
+	}
+
+	if !noUpload {
+		url, err := uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
+		if err != nil {
+			return err
+		}
+
+		if verbose {
+			fmt.Println("Uploaded to", url)
 		}
 	}
+
 	return nil
 }
 
@@ -129,6 +145,8 @@ func getEpicStat(acc, proj, token string, parentEpic int) (EpicStat, error) {
 	return EpicStat{epic, stats}, err
 }
 
+// ================================================================================================
+// PR
 func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) error {
 	r := NewRepo(acc, proj, token, repo)
 	if r.err != nil {

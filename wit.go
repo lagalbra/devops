@@ -64,6 +64,11 @@ type WiqlQuery struct {
 	Query string `json:"query"`
 }
 
+type EpicStat struct {
+	Epic  WorkItem
+	Stats []WitStateCount
+}
+
 func NewWork(account, project, token string) (r *AzureDevopsWit) {
 	r = &AzureDevopsWit{}
 	r.client = constructClientFromConfig(account, project, token)
