@@ -9,6 +9,7 @@ import (
 
 var showWork, showPr, verbose, noUpload bool
 var prCount int
+var semesterFilter bool
 
 func main() {
 	// Fetch the access stuff from environment
@@ -24,6 +25,8 @@ func main() {
 	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
 	flag.BoolVar(&verbose, "v", false, "Show verbose output")
 	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
+	flag.BoolVar(&semesterFilter, "sem", false, "Filter workitems not finished in this semester")
+
 	flag.Parse()
 
 	if showWork {
@@ -91,7 +94,7 @@ func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
 		return
 	}
 
-	wits, err := q.RefreshWit(parentEpic)
+	wits, err := q.RefreshWit(parentEpic, semesterFilter)
 	m.Lock()
 	defer m.Unlock()
 	fmt.Printf("%v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)

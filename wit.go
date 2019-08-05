@@ -4,6 +4,7 @@ package main
 // https://docs.microsoft.com/en-us/rest/api/azure/devops/wit/?view=azure-devops-rest-4.1
 import (
 	"fmt"
+	"time"
 
 	az "github.com/benmatselby/go-azuredevops/azuredevops"
 )
@@ -33,11 +34,12 @@ type WitTarget struct {
 }
 
 type WorkItem struct {
-	Id         int `json:"id"`
-	State      string
-	Type       string
-	Title      string
-	AssignedTo string
+	Id          int `json:"id"`
+	State       string
+	Type        string
+	Title       string
+	AssignedTo  string
+	ChangedDate time.Time
 }
 
 type WorkItemInternal struct {
@@ -46,10 +48,11 @@ type WorkItemInternal struct {
 }
 
 type Fields struct {
-	State      string `json:"System.State"`
-	Type       string `json:"System.WorkItemType"`
-	Title      string `json:"System.Title"`
-	AssignedTo string `json:"System.AssignedTo"`
+	State       string `json:"System.State"`
+	Type        string `json:"System.WorkItemType"`
+	Title       string `json:"System.Title"`
+	AssignedTo  string `json:"System.AssignedTo"`
+	ChangedDate string `json:"System.ChangedDate"`
 }
 
 type WitStateCount struct {
@@ -92,23 +95,39 @@ func (r *AzureDevopsWit) GetWorkitems(queryId string) ([]WorkItem, error) {
 			return nil, err
 		}
 		workItems = append(workItems, wi)
-
 	}
 
 	return workItems, nil
 }
 
-func (r *AzureDevopsWit) RefreshWit(parentEpic int) ([]WitStateCount, error) {
+func (r *AzureDevopsWit) RefreshWit(parentEpic int, filterSemester bool) ([]WitStateCount, error) {
 	wits, err := r.loadWorkitems(parentEpic)
 	if err != nil {
 		return nil, err
 	}
+
+	now := time.Now()
+	month := now.Month()
+	if month < 7 {
+		month = time.January // First semester
+	} else {
+		month = time.July // Second semester
+	}
+
+	// Starttime of the current semester
+	semesterStart := time.Date(now.Year(), month, 1, 0, 0, 0, 0, time.Local)
 
 	m := make(map[string]int)
 	for _, w := range wits {
 		if w.Type == "Epic" { // don't count the epics
 			continue
 		}
+
+		if filterSemester && (w.State == "Done" || w.State == "Removed") &&
+			w.ChangedDate.Before(semesterStart) {
+			continue
+		}
+
 		m[w.State]++
 	}
 	states := make([]WitStateCount, len(m))
@@ -131,7 +150,8 @@ func (r *AzureDevopsWit) loadWorkitems(parentEpic int) ([]WorkItem, error) {
     [System.Title],
     [System.AssignedTo],
     [System.State],
-    [System.Tags]
+	[System.Tags],
+	[System.ChangedDate]
 	FROM workitemLinks
 	WHERE
 		(
@@ -145,6 +165,8 @@ func (r *AzureDevopsWit) loadWorkitems(parentEpic int) ([]WorkItem, error) {
 		AND (
 			[Target].[System.TeamProject] = @project
 			AND [Target].[System.WorkItemType] <> ''
+			AND NOT [Target].[System.State] IN ('Removed')
+			AND [Target].[Scrum_custom.Status] <> 'Deferred'
 		)
 	MODE (Recursive)
 	`
@@ -190,5 +212,6 @@ func (r *AzureDevopsWit) GetWorkitem(witId int) (WorkItem, error) {
 		return WorkItem{}, err
 	}
 
-	return WorkItem{wi.Id, wi.WitFields.State, wi.WitFields.Type, wi.WitFields.Title, wi.WitFields.AssignedTo}, nil
+	t, _ := time.Parse(time.RFC3339, wi.WitFields.ChangedDate)
+	return WorkItem{wi.Id, wi.WitFields.State, wi.WitFields.Type, wi.WitFields.Title, wi.WitFields.AssignedTo, t}, nil
 }
