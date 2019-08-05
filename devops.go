@@ -7,6 +7,11 @@ import (
 	"sync"
 )
 
+type EpicStat struct {
+	Epic  WorkItem
+	Stats []WitStateCount
+}
+
 var showWork, showPr, verbose, noUpload bool
 var prCount int
 var semesterFilter bool
@@ -56,6 +61,8 @@ func showWorkStats(acc, proj, token string) error {
 		return err
 	}
 
+	var epicStats []EpicStat
+
 	// For each epic start a go-routine and fetch all workitems that are child of it
 	var wg sync.WaitGroup
 	m := &sync.Mutex{}
@@ -67,11 +74,35 @@ func showWorkStats(acc, proj, token string) error {
 		wg.Add(1)
 		go func(epic int, m *sync.Mutex) {
 			defer wg.Done()
-			printEpicStat(acc, proj, token, epic, m)
+			epicStat, err := getEpicStat(acc, proj, token, epic)
+			m.Lock()
+			if verbose {
+				fmt.Print(".")
+			}
+			defer m.Unlock()
+			if err != nil {
+				fmt.Println("Error getting stat for epic", epic)
+				return
+			}
+
+			epicStats = append(epicStats, epicStat)
+
 		}(epic.Id, m)
 	}
 
 	wg.Wait()
+	if verbose {
+		fmt.Println() // to move to next line after the progress dots shown above
+	}
+
+	for _, e := range epicStats {
+		epic := e.Epic
+		fmt.Printf("%v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)
+
+		for _, w := range e.Stats {
+			fmt.Println(w)
+		}
+	}
 	return nil
 }
 
@@ -85,27 +116,17 @@ func getEpics(acc, proj, token, queryID string) ([]WorkItem, error) {
 	return epics, nil
 }
 
-func printEpicStat(acc, proj, token string, parentEpic int, m *sync.Mutex) {
+func getEpicStat(acc, proj, token string, parentEpic int) (EpicStat, error) {
 	q := NewWork(acc, proj, token)
 
 	epic, err := q.GetWorkitem(parentEpic)
 	if err != nil {
-		fmt.Println("Error!!!", err)
-		return
+		return EpicStat{}, err
 	}
 
-	wits, err := q.RefreshWit(parentEpic, semesterFilter)
-	m.Lock()
-	defer m.Unlock()
-	fmt.Printf("%v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
+	stats, err := q.RefreshWit(parentEpic, semesterFilter)
 
-	for _, w := range wits {
-		fmt.Println(w)
-	}
+	return EpicStat{epic, stats}, err
 }
 
 func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) error {
@@ -120,7 +141,7 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 
 	// Output!!
 	if verbose {
-		fmt.Println("\nReviewer Stats\n")
+		fmt.Printf("\nReviewer Stats\n\n")
 	}
 	for _, revStat := range revStats {
 		bar := int((barmax / float32(max)) * float32(revStat.Count))
