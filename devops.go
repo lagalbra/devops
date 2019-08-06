@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 )
 
 var showWork, showPr, verbose, noUpload bool
 var prCount int
 var semesterFilter bool
+var poll bool
+
+const pollDuration time.Duration = 5 * time.Minute
 
 func main() {
 
@@ -19,6 +23,7 @@ func main() {
 	flag.BoolVar(&verbose, "v", false, "Show verbose output")
 	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
 	flag.BoolVar(&semesterFilter, "sem", false, "Filter workitems not finished in this semester")
+	flag.BoolVar(&poll, "poll", false, "Continue polling and updating")
 
 	flag.Parse()
 
@@ -38,22 +43,30 @@ func main() {
 
 	exitCode := 0
 
-	if showWork {
-		err := showWorkStats(acc, proj, token, azStorageAcc, azStorageKey)
-		if err != nil {
-			fmt.Println("Error fetching work stats!!", err)
-			exitCode += 2
+	for true {
+		if showWork {
+			err := showWorkStats(acc, proj, token, azStorageAcc, azStorageKey)
+			if err != nil {
+				fmt.Println("Error fetching work stats!!", err)
+				exitCode += 2
+			}
+		}
+
+		if prCount > 0 {
+			err := showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
+			if err != nil {
+				fmt.Println("Error fetching pull-request stats!!", err)
+				exitCode += 4
+			}
+		}
+
+		if poll {
+			fmt.Println("Sleeping for ", pollDuration)
+			time.Sleep(pollDuration)
+		} else {
+			break
 		}
 	}
-
-	if prCount > 0 {
-		err := showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
-		if err != nil {
-			fmt.Println("Error fetching pull-request stats!!", err)
-			exitCode += 4
-		}
-	}
-
 	os.Exit(exitCode)
 }
 
