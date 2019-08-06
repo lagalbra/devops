@@ -20,6 +20,13 @@ func main() {
 	azStorageAcc := os.Getenv("AZURE_STORAGE_ACCOUNT")
 	azStorageKey := os.Getenv("AZURE_STORAGE_ACCESS_KEY")
 
+	if len(acc) == 0 || len(proj) == 0 || len(token) == 0 || len(repo) == 0 ||
+		len(azStorageAcc) == 0 || len(azStorageKey) == 0 {
+		fmt.Println("Environment not setup")
+		os.Exit(1)
+	}
+
+	exitCode := 0
 	// Setup command line parsing
 	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
 	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
@@ -33,6 +40,7 @@ func main() {
 		err := showWorkStats(acc, proj, token, azStorageAcc, azStorageKey)
 		if err != nil {
 			fmt.Println("Error fetching work stats!!", err)
+			exitCode += 2
 		}
 	}
 
@@ -40,8 +48,11 @@ func main() {
 		err := showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
 		if err != nil {
 			fmt.Println("Error fetching pull-request stats!!", err)
+			exitCode += 4
 		}
 	}
+
+	os.Exit(exitCode)
 }
 
 // ================================================================================================
