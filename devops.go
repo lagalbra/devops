@@ -12,6 +12,16 @@ var prCount int
 var semesterFilter bool
 
 func main() {
+
+	// Setup command line parsing
+	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
+	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
+	flag.BoolVar(&verbose, "v", false, "Show verbose output")
+	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
+	flag.BoolVar(&semesterFilter, "sem", false, "Filter workitems not finished in this semester")
+
+	flag.Parse()
+
 	// Fetch the access stuff from environment
 	acc := os.Getenv("AZUREDEVOPS_ACCOUNT")
 	proj := os.Getenv("AZUREDEVOPS_PROJECT")
@@ -27,14 +37,6 @@ func main() {
 	}
 
 	exitCode := 0
-	// Setup command line parsing
-	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
-	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
-	flag.BoolVar(&verbose, "v", false, "Show verbose output")
-	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
-	flag.BoolVar(&semesterFilter, "sem", false, "Filter workitems not finished in this semester")
-
-	flag.Parse()
 
 	if showWork {
 		err := showWorkStats(acc, proj, token, azStorageAcc, azStorageKey)
