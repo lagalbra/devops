@@ -10,6 +10,8 @@ Clone the repo and for the first time
 ```bash
 git clone https://github.com/abhinababasu/devops
 go get -v github.com/benmatselby/go-azuredevops/azuredevops
+go get -v github.com/llgcode/draw2d
+go get -v github.com/Azure/azure-storage-blob-go/azblob
 ```
  
  Subsequently run the following
