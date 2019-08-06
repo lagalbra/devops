@@ -20,6 +20,11 @@ go get -v github.com/Azure/azure-storage-blob-go/azblob
 build.sh
 ````
 
+To also publish the images use
+```bash
+build.sh -p
+```
+
 Running
 -------
 You need to export the following environment variables. 
