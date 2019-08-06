@@ -1,5 +1,4 @@
 FROM golang:latest AS builder
-
 RUN mkdir /app
 WORKDIR /app
 COPY . .
@@ -11,5 +10,6 @@ RUN go get -v github.com/benmatselby/go-azuredevops/azuredevops && \
 FROM scratch
 COPY --from=builder /app/devops .
 COPY --from=builder /app/luxisr.ttf .
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 CMD ["/devops", "-h"]

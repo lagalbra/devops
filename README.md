@@ -17,7 +17,7 @@ go get -v github.com/Azure/azure-storage-blob-go/azblob
  Subsequently run the following
 
 ```bash
-go build
+build.sh
 ````
 
 Running
@@ -29,6 +29,9 @@ export AZUREDEVOPS_ACCOUNT=<account e.g. msazure>
 export AZUREDEVOPS_PROJECT=<Project e.g. One>
 export AZUREDEVOPS_TOKEN=<your Azure DevOps token>
 export AZUREDEVOPS_REPO=<My cool repo>
+
+export AZURE_STORAGE_ACCOUNT="<your account>"
+export AZURE_STORAGE_ACCESS_KEY="<key>"
 ```
 
 See the command line help
@@ -44,6 +47,15 @@ To just see PR reviewer details for the last 100 prs
 Just see work item details (under-development, not yet working)
 ```bash
 ./devops -wit
+```
+
+To run using the docker container
+```bash
+docker run -it --rm -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT \
+      -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT \
+      -e AZURE_STORAGE_ACCESS_KEY devops:0.1 \
+      /devops -pr 200 -wit -sem -v
+
 ```
 
 Output
