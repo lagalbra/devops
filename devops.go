@@ -118,14 +118,24 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string) e
 		fmt.Println() // to move to next line after the progress dots shown above
 	}
 
+	var maxBars float32 = 120.0
+	var maxCount float32
 	for _, e := range epicStats {
-		epic := e.Epic
-		fmt.Printf("%v: %v (%v)\n", epic.Id, epic.Title, epic.AssignedTo)
-
-		for _, w := range e.Stats {
-			fmt.Printf(" %v:%v", w.State, w.Count)
+		count := float32(e.Done + e.InProgress + e.NotDone + e.Unknown)
+		if count > maxCount {
+			maxCount = count
 		}
-		fmt.Println()
+	}
+
+	for _, e := range epicStats {
+		fmt.Printf("%v: %v (%v)\n", e.Epic.Id, e.Epic.Title, e.Epic.AssignedTo)
+		fmt.Printf("Done:%v InProgress:%v ToDo:%v Unknown:%v\n", e.Done, e.InProgress, e.NotDone, e.Unknown)
+		conv := maxBars / maxCount
+		drawBars("#", conv*float32(e.Done))
+		drawBars("=", conv*float32(e.InProgress))
+		drawBars("-", conv*float32(e.NotDone))
+		drawBars(".", conv*float32(e.Unknown))
+		fmt.Print("\n\n")
 	}
 
 	fileName := "epicstat.png"
@@ -161,14 +171,15 @@ func getEpics(acc, proj, token, queryID string) ([]WorkItem, error) {
 func getEpicStat(acc, proj, token string, parentEpic int) (EpicStat, error) {
 	q := NewWork(acc, proj, token)
 
-	epic, err := q.GetWorkitem(parentEpic)
-	if err != nil {
-		return EpicStat{}, err
-	}
-
 	stats, err := q.RefreshWit(parentEpic, semesterFilter)
 
-	return EpicStat{epic, stats}, err
+	return stats, err
+}
+
+func drawBars(ch string, count float32) {
+	for i := 0; i < int(count); i++ {
+		fmt.Print(ch)
+	}
 }
 
 // ================================================================================================

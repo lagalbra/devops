@@ -55,18 +55,16 @@ type Fields struct {
 	ChangedDate string `json:"System.ChangedDate"`
 }
 
-type WitStateCount struct {
-	State string
-	Count int
-}
-
 type WiqlQuery struct {
 	Query string `json:"query"`
 }
 
 type EpicStat struct {
-	Epic  WorkItem
-	Stats []WitStateCount
+	Epic       WorkItem
+	Done       int
+	NotDone    int
+	InProgress int
+	Unknown    int
 }
 
 func NewWork(account, project, token string) (r *AzureDevopsWit) {
@@ -105,10 +103,17 @@ func (r *AzureDevopsWit) GetWorkitems(queryId string) ([]WorkItem, error) {
 	return workItems, nil
 }
 
-func (r *AzureDevopsWit) RefreshWit(parentEpic int, filterSemester bool) ([]WitStateCount, error) {
-	wits, err := r.loadWorkitems(parentEpic)
+func (q *AzureDevopsWit) RefreshWit(parentEpic int, filterSemester bool) (EpicStat, error) {
+
+	epic, err := q.GetWorkitem(parentEpic)
 	if err != nil {
-		return nil, err
+		return EpicStat{}, err
+	}
+
+	wits, err := q.loadWorkitems(parentEpic)
+	epicStat := EpicStat{epic, 0, 0, 0, 0}
+	if err != nil {
+		return epicStat, err
 	}
 
 	now := time.Now()
@@ -122,7 +127,6 @@ func (r *AzureDevopsWit) RefreshWit(parentEpic int, filterSemester bool) ([]WitS
 	// Starttime of the current semester
 	semesterStart := time.Date(now.Year(), month, 1, 0, 0, 0, 0, time.Local)
 
-	m := make(map[string]int)
 	for _, w := range wits {
 		if w.Type == "Epic" { // don't count the epics
 			continue
@@ -133,15 +137,19 @@ func (r *AzureDevopsWit) RefreshWit(parentEpic int, filterSemester bool) ([]WitS
 			continue
 		}
 
-		m[w.State]++
+		switch w.State {
+		case "New", "To Do", "Committed":
+			epicStat.NotDone++
+		case "In Progress":
+			epicStat.InProgress++
+		case "Done", "Removed":
+			epicStat.Done++
+		default:
+			epicStat.Unknown++
+		}
+
 	}
-	states := make([]WitStateCount, len(m))
-	i := 0
-	for k, v := range m {
-		states[i] = WitStateCount{k, v}
-		i++
-	}
-	return states, nil
+	return epicStat, nil
 }
 
 func (r *AzureDevopsWit) loadWorkitems(parentEpic int) ([]WorkItem, error) {

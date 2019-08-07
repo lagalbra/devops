@@ -105,11 +105,7 @@ func saveWitStatImage(epicStat []EpicStat, fileName string) error {
 	// Find the max count for an Epic
 	maxCount := 0
 	for _, e := range epicStat {
-		count := 0
-		for _, s := range e.Stats {
-			count += s.Count
-		}
-
+		count := e.Done + e.InProgress + e.NotDone + e.Unknown
 		if count > maxCount {
 			maxCount = count
 		}
@@ -166,38 +162,23 @@ func drawEpicStat(gc *draw2dimg.GraphicContext, es EpicStat, maxCount int, x, y,
 
 	y += b // The text bottom is here now
 
-	total, done, notdone, progress, unknown := 0, 0, 0, 0, 0
-	for _, w := range es.Stats {
-		total += w.Count
-		switch w.State {
-		case "New", "To Do", "Committed":
-			notdone += w.Count
-		case "In Progress":
-			progress += w.Count
-		case "Done", "Removed":
-			done += w.Count
-		default:
-			unknown += w.Count
-		}
-	}
-
 	y += 5 // Leave some gap between text and the bar
 	barH := 15.0
 
 	w -= 20.0 // actual width to use
-	barW := (w / float64(maxCount)) * float64(done)
+	barW := (w / float64(maxCount)) * float64(es.Done)
 	drawRect(gc, x, y, barW, barH, color.Black, WitDoneColor)
 	x += barW
 
-	barW = (w / float64(maxCount)) * float64(progress)
+	barW = (w / float64(maxCount)) * float64(es.InProgress)
 	drawRect(gc, x, y, barW, barH, color.Black, WitInProgressColor)
 	x += barW
 
-	barW = (w / float64(maxCount)) * float64(notdone)
+	barW = (w / float64(maxCount)) * float64(es.NotDone)
 	drawRect(gc, x, y, barW, barH, color.Black, WitNotDoneColor)
 	x += barW
 
-	barW = (w / float64(maxCount)) * float64(unknown)
+	barW = (w / float64(maxCount)) * float64(es.Unknown)
 	drawRect(gc, x, y, barW, barH, color.Black, WitUnKnownColor)
 	x += barW
 
