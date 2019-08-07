@@ -51,10 +51,7 @@ To start the server in verbose mode on port 8080
 
 To run using the docker container
 ```bash
-docker run -it --rm -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT \
-      -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT \
-      -e AZURE_STORAGE_ACCESS_KEY devops:0.1 \
-      /devops -pr 200 -wit -sem -v
+docker run -it --rm -p 80:80 -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT -e AZURE_STORAGE_ACCESS_KEY devops:0.1 /devops -v -port 80
 
 ```
 
