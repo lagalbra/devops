@@ -3,78 +3,67 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
+	"strconv"
 	"sync"
-	"time"
 )
 
-var showWork, showPr, verbose, noUpload bool
-var prCount int
+var verbose, noUpload bool
 var semesterFilter bool
-var poll bool
+var port int
 
-const pollDuration time.Duration = 5 * time.Minute
+// Devops details
+var devOpsAccount, devOpsProject, devOpsToken, devOpsRepo string
+
+// Azure Storage
+var azStorageAcc, azStorageKey string
+
+const (
+	defaultPrCount = 200
+	maxPrCount     = 1000
+
+	defaultEpicWitQuery = "0325c50f-3511-4266-a9fe-80b989492c76"
+)
 
 func main() {
 
 	// Setup command line parsing
-	flag.BoolVar(&showWork, "wit", false, "Show workitem stats")
-	flag.IntVar(&prCount, "pr", 0, "Number of pull requests to process for count")
 	flag.BoolVar(&verbose, "v", false, "Show verbose output")
 	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
-	flag.BoolVar(&semesterFilter, "sem", false, "Filter workitems not finished in this semester")
-	flag.BoolVar(&poll, "poll", false, "Continue polling and updating")
+	flag.BoolVar(&semesterFilter, "sem", true, "Filter workitems not finished in this semester")
+	flag.IntVar(&port, "port", 80, "Port where the http server will listen")
 
 	flag.Parse()
 
 	// Fetch the access stuff from environment
-	acc := os.Getenv("AZUREDEVOPS_ACCOUNT")
-	proj := os.Getenv("AZUREDEVOPS_PROJECT")
-	token := os.Getenv("AZUREDEVOPS_TOKEN")
-	repo := os.Getenv("AZUREDEVOPS_REPO")
-	azStorageAcc := os.Getenv("AZURE_STORAGE_ACCOUNT")
-	azStorageKey := os.Getenv("AZURE_STORAGE_ACCESS_KEY")
+	devOpsAccount = os.Getenv("AZUREDEVOPS_ACCOUNT")
+	devOpsProject = os.Getenv("AZUREDEVOPS_PROJECT")
+	devOpsToken = os.Getenv("AZUREDEVOPS_TOKEN")
+	devOpsRepo = os.Getenv("AZUREDEVOPS_REPO")
+	azStorageAcc = os.Getenv("AZURE_STORAGE_ACCOUNT")
+	azStorageKey = os.Getenv("AZURE_STORAGE_ACCESS_KEY")
 
-	if len(acc) == 0 || len(proj) == 0 || len(token) == 0 || len(repo) == 0 ||
+	if len(devOpsAccount) == 0 || len(devOpsProject) == 0 || len(devOpsToken) == 0 || len(devOpsRepo) == 0 ||
 		len(azStorageAcc) == 0 || len(azStorageKey) == 0 {
 		fmt.Println("Environment not setup")
 		os.Exit(1)
 	}
 
-	exitCode := 0
+	addr := fmt.Sprintf(":%v", port)
+	fmt.Println("Starting to listen on", port)
+	http.HandleFunc("/", rootHandler)
+	http.HandleFunc("/wit", witHandler)
+	http.HandleFunc("/pr", prHandler)
+	log.Fatal(http.ListenAndServe(addr, nil))
 
-	for true {
-		if showWork {
-			err := showWorkStats(acc, proj, token, azStorageAcc, azStorageKey)
-			if err != nil {
-				fmt.Println("Error fetching work stats!!", err)
-				exitCode += 2
-			}
-		}
-
-		if prCount > 0 {
-			err := showPrStats(acc, proj, token, repo, prCount, azStorageAcc, azStorageKey)
-			if err != nil {
-				fmt.Println("Error fetching pull-request stats!!", err)
-				exitCode += 4
-			}
-		}
-
-		if poll {
-			fmt.Println("Sleeping for ", pollDuration)
-			time.Sleep(pollDuration)
-		} else {
-			break
-		}
-	}
-	os.Exit(exitCode)
 }
 
 // ================================================================================================
 // Workitem
-func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string) error {
+func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, epicWitQuery string) error {
 	// Get the list of epics from a epic's only query
-	epicWitQuery := "0325c50f-3511-4266-a9fe-80b989492c76"
 	if verbose {
 		fmt.Printf("Fetching epics using query %v\n", epicWitQuery)
 	}
@@ -233,4 +222,82 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 	}
 
 	return nil
+}
+
+// ================================================================================================
+// Http
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Called!!!!")
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Welcome to DevOps tools from @abhinaba\nUse /pr and /wit\n"))
+}
+
+func prHandler(w http.ResponseWriter, r *http.Request) {
+	prCount, err := getIntQueryParam("count", w, r, defaultPrCount)
+	if err != nil {
+		fmt.Printf("Error!! %v %v\n", r.URL, err)
+		return
+	}
+
+	if prCount > maxPrCount || prCount <= 0 {
+		writeError(w, "Invalid count range")
+		return
+	}
+
+	err = showPrStats(devOpsAccount, devOpsProject, devOpsToken, devOpsRepo, prCount, azStorageAcc, azStorageKey)
+	if err != nil {
+		str := fmt.Sprintf("Error fetching pull-request stats: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(str))
+	}
+
+	w.WriteHeader(http.StatusOK)
+	str := fmt.Sprintf("Processed %v pull-requests", prCount)
+	w.Write([]byte(str))
+}
+
+func witHandler(w http.ResponseWriter, r *http.Request) {
+	queryId, _ := getStringQueryParam("queryid", w, r, defaultEpicWitQuery)
+	err := showWorkStats(devOpsAccount, devOpsProject, devOpsToken, azStorageAcc, azStorageKey, queryId)
+	if err != nil {
+		str := fmt.Sprintf("Error fetching work stats: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(str))
+	}
+}
+
+func getIntQueryParam(name string, w http.ResponseWriter, r *http.Request, defaultValue int) (int, error) {
+	i := defaultValue
+
+	if keys, ok := r.URL.Query()[name]; ok {
+		if len(keys) > 0 {
+			var err error
+			i, err = strconv.Atoi(keys[0])
+			if err != nil {
+				writeError(w, "Integer param count expected")
+				return i, fmt.Errorf("Integer param count expected")
+			}
+		}
+	}
+	return i, nil
+}
+
+func getStringQueryParam(name string, w http.ResponseWriter, r *http.Request, defaultValue string) (string, error) {
+	str := defaultValue
+
+	if keys, ok := r.URL.Query()[name]; ok {
+		if len(keys) > 0 {
+			str = keys[0]
+		}
+	}
+	return str, nil
+}
+
+func writeError(w http.ResponseWriter, message string) {
+	w.WriteHeader(http.StatusBadRequest)
+	w.Header().Set("Content-Type", "text/plain")
+	w.Write([]byte(message))
 }
