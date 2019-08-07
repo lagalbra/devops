@@ -25,8 +25,8 @@ To also publish the images use
 build.sh -p
 ```
 
-Running
--------
+Running Server
+--------------
 You need to export the following environment variables. 
 
 ```bash
@@ -44,14 +44,9 @@ See the command line help
 ./devops -h
 ```
 
-To just see PR reviewer details for the last 100 prs
+To start the server in verbose mode on port 8080
 ```bash
-./devops -pr 100
-```
-
-Just see work item details (under-development, not yet working)
-```bash
-./devops -wit
+./devops -v -port 8080
 ```
 
 To run using the docker container
@@ -63,20 +58,45 @@ docker run -it --rm -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT \
 
 ```
 
-Output
-------
-This fetches the last N pull requests and prints the reviwers and the number of PRs they have reviewed along. Sample output
+Using the API
+-------------
+Call the API to get Pull request stats
 
 ```
-Using Account=msazure, Project=One
-Processing 400 completed PRs.........
-PRs from 2019-04-01 00:00:00.42 +0000 UTC
+abhinaba:~$ curl localhost:8080/pr?count=400
 
-REVIEWER STATS
-
+Reviewer Stats
               Trillian Astra 225 (56.2%) [############################################]
                 Ford Prefect 140 (35.0%) [###############################-------------]
                  Arthur Dent 134 (33.5%) [#############################---------------]
               Slartibartfast 125 (31.2%) [###########################-----------------]
            Zaphod Beeblebrox 107 (26.8%) [####################------------------------]
+
+
+Processed 400 pull-requests
+```
+
+Call the API to get workitem stats
+
+```
+abhinaba:~$ curl localhost:8080/wit
+4884022: Deployments (Trillian Astra)
+Done:2 InProgress:1 ToDo:3 Unknown:0
+##=----
+
+4884120: New SKU is onboarded (Ford Prefect)
+Done:1 InProgress:0 ToDo:8 Unknown:0
+#-----------
+
+4669527: Reduce customer issues (Slartibartfast)
+Done:3 InProgress:9 ToDo:14 Unknown:0
+####============-------------------
+
+3904063: Consumption tracking and Billing (Zaphod)
+Done:5 InProgress:1 ToDo:16 Unknown:0
+######=----------------------
+
+3904108: Open source tools (Zaphod)
+Done:5 InProgress:2 ToDo:14 Unknown:0
+######==-------------------
 ```

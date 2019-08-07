@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"log"
@@ -62,7 +63,8 @@ func main() {
 
 // ================================================================================================
 // Workitem
-func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, epicWitQuery string) error {
+func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, epicWitQuery string) (bytes.Buffer, error) {
+	var buffer bytes.Buffer
 	// Get the list of epics from a epic's only query
 	if verbose {
 		fmt.Printf("Fetching epics using query %v\n", epicWitQuery)
@@ -70,7 +72,7 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 
 	parentEpics, err := getEpics(acc, proj, token, epicWitQuery)
 	if err != nil {
-		return err
+		return buffer, err
 	}
 
 	var epicStats []EpicStat
@@ -88,10 +90,10 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 			defer wg.Done()
 			epicStat, err := getEpicStat(acc, proj, token, epic)
 			m.Lock()
+			defer m.Unlock()
 			if verbose {
 				fmt.Print(".")
 			}
-			defer m.Unlock()
 			if err != nil {
 				fmt.Println("Error getting stat for epic", epic)
 				return
@@ -117,26 +119,30 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 	}
 
 	for _, e := range epicStats {
-		fmt.Printf("%v: %v (%v)\n", e.Epic.Id, e.Epic.Title, e.Epic.AssignedTo)
-		fmt.Printf("Done:%v InProgress:%v ToDo:%v Unknown:%v\n", e.Done, e.InProgress, e.NotDone, e.Unknown)
+		str := fmt.Sprintf("%v: %v (%v)\n", e.Epic.Id, e.Epic.Title, e.Epic.AssignedTo)
+		buffer.WriteString(str)
+
+		str = fmt.Sprintf("Done:%v InProgress:%v ToDo:%v Unknown:%v\n", e.Done, e.InProgress, e.NotDone, e.Unknown)
+		buffer.WriteString(str)
+
 		conv := maxBars / maxCount
-		drawBars("#", conv*float32(e.Done))
-		drawBars("=", conv*float32(e.InProgress))
-		drawBars("-", conv*float32(e.NotDone))
-		drawBars(".", conv*float32(e.Unknown))
-		fmt.Print("\n\n")
+		drawBars(&buffer, '#', conv*float32(e.Done))
+		drawBars(&buffer, '=', conv*float32(e.InProgress))
+		drawBars(&buffer, '-', conv*float32(e.NotDone))
+		drawBars(&buffer, '.', conv*float32(e.Unknown))
+		buffer.WriteString("\n\n")
 	}
 
 	fileName := "epicstat.png"
 	err = saveWitStatImage(epicStats, fileName)
 	if err != nil {
-		return err
+		return buffer, err
 	}
 
 	if !noUpload {
 		url, err := uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
 		if err != nil {
-			return err
+			return buffer, err
 		}
 
 		if verbose {
@@ -144,7 +150,7 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 		}
 	}
 
-	return nil
+	return buffer, nil
 }
 
 func getEpics(acc, proj, token, queryID string) ([]WorkItem, error) {
@@ -165,18 +171,19 @@ func getEpicStat(acc, proj, token string, parentEpic int) (EpicStat, error) {
 	return stats, err
 }
 
-func drawBars(ch string, count float32) {
+func drawBars(buffer *bytes.Buffer, ch rune, count float32) {
 	for i := 0; i < int(count); i++ {
-		fmt.Print(ch)
+		buffer.WriteRune(ch)
 	}
 }
 
 // ================================================================================================
 // PR
-func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) error {
+func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStorageKey string) (bytes.Buffer, error) {
 	r := NewRepo(acc, proj, token, repo)
+	var buffer bytes.Buffer
 	if r.err != nil {
-		return r.err
+		return buffer, r.err
 	}
 
 	// Fetch PRs
@@ -185,35 +192,35 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 
 	// Output!!
 	if verbose {
-		fmt.Printf("\nReviewer Stats\n\n")
+		buffer.WriteString("\nReviewer Stats\n\n")
 	}
 	for _, revStat := range revStats {
 		bar := int((barmax / float32(max)) * float32(revStat.Count))
 		percentage := float32(revStat.Count) / float32(count) * 100.0
-		fmt.Printf("%30s %4d (%4.1f%%) ", revStat.Name, revStat.Count, percentage)
-		fmt.Print("[")
+		buffer.WriteString(fmt.Sprintf("%30s %4d (%4.1f%%) ", revStat.Name, revStat.Count, percentage))
+		buffer.WriteString("[")
 		i := 0
 		for ; i < bar; i++ {
-			fmt.Print("#")
+			buffer.WriteRune('#')
 		}
 
 		for ; i < int(barmax); i++ {
-			fmt.Print("-")
+			buffer.WriteRune('-')
 		}
-		fmt.Print("]\n")
+		buffer.WriteString("]\n")
 	}
 
 	fileName := "revstat.png"
 	err := savePrStatImage(revStats, count, fileName)
 
 	if err != nil {
-		return err
+		return buffer, err
 	}
 
 	if !noUpload {
 		url, err := uploadImageToAzure(azStorageAcc, azStorageKey, fileName)
 		if err != nil {
-			return err
+			return buffer, err
 		}
 
 		if verbose {
@@ -221,7 +228,7 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 		}
 	}
 
-	return nil
+	return buffer, nil
 }
 
 // ================================================================================================
@@ -245,28 +252,33 @@ func prHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = showPrStats(devOpsAccount, devOpsProject, devOpsToken, devOpsRepo, prCount, azStorageAcc, azStorageKey)
-	if err != nil {
+	buffer, err1 := showPrStats(devOpsAccount, devOpsProject, devOpsToken, devOpsRepo, prCount, azStorageAcc, azStorageKey)
+	if err1 != nil {
 		str := fmt.Sprintf("Error fetching pull-request stats: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(str))
 	}
 
+	buffer.WriteString(fmt.Sprintf("Processed %v pull-requests\n", prCount))
 	w.WriteHeader(http.StatusOK)
-	str := fmt.Sprintf("Processed %v pull-requests", prCount)
-	w.Write([]byte(str))
+	w.Write(buffer.Bytes())
 }
 
 func witHandler(w http.ResponseWriter, r *http.Request) {
 	queryId, _ := getStringQueryParam("queryid", w, r, defaultEpicWitQuery)
-	err := showWorkStats(devOpsAccount, devOpsProject, devOpsToken, azStorageAcc, azStorageKey, queryId)
+	buffer, err := showWorkStats(devOpsAccount, devOpsProject, devOpsToken, azStorageAcc, azStorageKey, queryId)
 	if err != nil {
 		str := fmt.Sprintf("Error fetching work stats: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte(str))
+		return
 	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write(buffer.Bytes())
+
 }
 
 func getIntQueryParam(name string, w http.ResponseWriter, r *http.Request, defaultValue int) (int, error) {
