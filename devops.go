@@ -37,7 +37,6 @@ var (
 )
 
 func main() {
-
 	// Setup command line parsing
 	flag.BoolVar(&verbose, "v", false, "Show verbose output")
 	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
@@ -237,14 +236,20 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 
 // ================================================================================================
 // Http
+
+func showRequest(r *http.Request) {
+	Info.Printf("Request for %v from %s(%s)", r.RequestURI, r.RemoteAddr, r.UserAgent())
+}
+
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	Info.Println("Root handler called!!!!")
+	showRequest(r)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Welcome to DevOps tools from @abhinaba\nUse /pr and /wit\n"))
 }
 
 func prHandler(w http.ResponseWriter, r *http.Request) {
+	showRequest(r)
 	prCount, err := getIntQueryParam("count", w, r, defaultPrCount)
 	if err != nil {
 		Error.Printf("Error!! %v %v\n", r.URL, err)
@@ -270,6 +275,7 @@ func prHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func witHandler(w http.ResponseWriter, r *http.Request) {
+	showRequest(r)
 	queryId, _ := getStringQueryParam("queryid", w, r, defaultEpicWitQuery)
 	buffer, err := showWorkStats(devOpsAccount, devOpsProject, devOpsToken, azStorageAcc, azStorageKey, queryId)
 	if err != nil {
