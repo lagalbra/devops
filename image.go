@@ -20,9 +20,7 @@ var (
 // ================================================================================================
 // PR related images
 func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) error {
-	if verbose {
-		fmt.Println("Generating image ", fileName)
-	}
+	Info.Println("Generating image ", fileName)
 
 	nReviewers := len(reviewers)
 	w := 1000.0
@@ -86,9 +84,7 @@ func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) err
 		return err
 	}
 
-	if verbose {
-		fmt.Println("Generated", fileName)
-	}
+	Info.Println("Generated", fileName)
 
 	return nil
 }
@@ -96,9 +92,7 @@ func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) err
 // ================================================================================================
 // Workitem images
 func saveWitStatImage(epicStat []EpicStat, fileName string) error {
-	if verbose {
-		fmt.Println("Generating image ", fileName)
-	}
+	Info.Println("Generating image ", fileName)
 
 	nEpics := len(epicStat)
 
@@ -140,10 +134,7 @@ func saveWitStatImage(epicStat []EpicStat, fileName string) error {
 		return err
 	}
 
-	if verbose {
-		fmt.Println("Generated", fileName)
-	}
-
+	Info.Println("Generated", fileName)
 	return nil
 }
 

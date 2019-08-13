@@ -111,11 +111,11 @@ func (r *AzureDevopsRepo) Refresh(count int) {
 }
 
 func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]ReviewerStat, int) {
-	fmt.Printf("Processing %v completed PRs.........\n", count)
+	Info.Printf("Processing %v completed PRs", count)
 	r.Refresh(count)
 	prs := r.PullRequests
 
-	fmt.Println("PRs from", prs[len(prs)-1].ClosedDate)
+	Info.Println("PRs from", prs[len(prs)-1].ClosedDate)
 
 	// Iterate and create a map of reviewers[review-count]
 	review := make(map[string]int)

@@ -59,8 +59,8 @@ To run using Azure Container services
 ```bash
 # login and create ACI
 az login
-az account set --subscription a18f525d-a6ac-47bd-bada-98c45b42486e
-az container create --resource-group DevAbhiRG --name devopsaci --image abhinababasu.azurecr.io/devops:latest --restart-policy OnFailure --environment-variables 'AZUREDEVOPS_ACCOUNT'='account e.g.msazure' 'AZUREDEVOPS_PROJECT'='Project e.g. One' 'AZUREDEVOPS_TOKEN'='your token' 'AZUREDEVOPS_REPO'='My cool repo' 'AZURE_STORAGE_ACCOUNT'='My account'  'AZURE_STORAGE_ACCESS_KEY'='key' --ports 80 --cpu 1 --memory 1  --dns-name-label abhidevops
+az account set --subscription <my subs>
+az container create --resource-group MyRG --name devopsaci --image abhinababasu.azurecr.io/devops:latest --restart-policy OnFailure --environment-variables 'AZUREDEVOPS_ACCOUNT'='account e.g.msazure' 'AZUREDEVOPS_PROJECT'='Project e.g. One' 'AZUREDEVOPS_TOKEN'='your token' 'AZUREDEVOPS_REPO'='My cool repo' 'AZURE_STORAGE_ACCOUNT'='My account'  'AZURE_STORAGE_ACCESS_KEY'='key' --ports 80 --cpu 1 --memory 1  --dns-name-label abhidevops
 
 # list the container
 az container show --resource-group DevAbhiRG --name devopsaci --query "{FQDN:ipAddress.fqdn,ProvisioningState:provisioningState}" --out table

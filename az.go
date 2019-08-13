@@ -30,7 +30,7 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) (string, er
 	if err != nil {
 		if err, ok := err.(azblob.StorageError); ok {
 			if err.ServiceCode() != "ContainerAlreadyExists" {
-				fmt.Println("Unknown Error creating container", err)
+				Error.Println("Unknown Error creating container", err)
 				return "", err
 			}
 		}
@@ -38,10 +38,6 @@ func uploadImageToAzure(azStorageAcc, azStorageKey, fileName string) (string, er
 
 	blobURL := containerURL.NewBlockBlobURL(fileName)
 	file, err := os.Open(fileName)
-
-	if verbose {
-		fmt.Printf("Uploading the file with blob name: %s\n", fileName)
-	}
 
 	_, err = azblob.UploadFileToBlockBlob(ctx, file, blobURL, azblob.UploadToBlockBlobOptions{
 		BlockSize: 4 * 1024 * 1024,

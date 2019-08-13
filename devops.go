@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -28,6 +29,13 @@ const (
 	defaultEpicWitQuery = "0325c50f-3511-4266-a9fe-80b989492c76"
 )
 
+// Log provides global logging
+var (
+	Info    *log.Logger
+	Warning *log.Logger
+	Error   *log.Logger
+)
+
 func main() {
 
 	// Setup command line parsing
@@ -35,8 +43,17 @@ func main() {
 	flag.BoolVar(&noUpload, "nu", false, "Do not upload generated data into Azure")
 	flag.BoolVar(&semesterFilter, "sem", true, "Filter workitems not finished in this semester")
 	flag.IntVar(&port, "port", 80, "Port where the http server will listen")
-
 	flag.Parse()
+
+	logFlags := log.Ldate | log.Ltime
+	if verbose {
+		Info = log.New(os.Stdout, "INF: ", logFlags)
+	} else {
+		Info = log.New(ioutil.Discard, "INF: ", logFlags)
+	}
+
+	Warning = log.New(os.Stdout, "WRN: ", logFlags)
+	Error = log.New(os.Stderr, "ERR: ", logFlags)
 
 	// Fetch the access stuff from environment
 	devOpsAccount = os.Getenv("AZUREDEVOPS_ACCOUNT")
@@ -48,12 +65,12 @@ func main() {
 
 	if len(devOpsAccount) == 0 || len(devOpsProject) == 0 || len(devOpsToken) == 0 || len(devOpsRepo) == 0 ||
 		len(azStorageAcc) == 0 || len(azStorageKey) == 0 {
-		fmt.Println("Environment not setup")
+		Error.Println("Environment not setup")
 		os.Exit(1)
 	}
 
 	addr := fmt.Sprintf(":%v", port)
-	fmt.Println("Starting to listen on", port)
+	Info.Printf("Starting to listen on %v", port)
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/wit", witHandler)
 	http.HandleFunc("/pr", prHandler)
@@ -66,9 +83,7 @@ func main() {
 func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, epicWitQuery string) (bytes.Buffer, error) {
 	var buffer bytes.Buffer
 	// Get the list of epics from a epic's only query
-	if verbose {
-		fmt.Printf("Fetching epics using query %v\n", epicWitQuery)
-	}
+	Info.Printf("Fetching epics using query %v\n", epicWitQuery)
 
 	parentEpics, err := getEpics(acc, proj, token, epicWitQuery)
 	if err != nil {
@@ -81,9 +96,7 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 	var wg sync.WaitGroup
 	m := &sync.Mutex{}
 	for _, epic := range parentEpics {
-		if verbose {
-			fmt.Printf("Fetching epic %v: %v\n", epic.Id, epic.Title)
-		}
+		Info.Printf("Fetching epic %v: %v\n", epic.Id, epic.Title)
 
 		wg.Add(1)
 		go func(epic int, m *sync.Mutex) {
@@ -91,23 +104,19 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 			epicStat, err := getEpicStat(acc, proj, token, epic)
 			m.Lock()
 			defer m.Unlock()
-			if verbose {
-				fmt.Print(".")
-			}
 			if err != nil {
-				fmt.Println("Error getting stat for epic", epic)
+				Error.Println("Error getting stat for epic", epic)
 				return
 			}
 
 			epicStats = append(epicStats, epicStat)
+			Info.Println("Fetched epic", epic)
 
 		}(epic.Id, m)
 	}
 
+	Info.Println("Starting wait for epic fetch to finish")
 	wg.Wait()
-	if verbose {
-		fmt.Println() // to move to next line after the progress dots shown above
-	}
 
 	var maxBars float32 = 120.0
 	var maxCount float32
@@ -145,9 +154,8 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 			return buffer, err
 		}
 
-		if verbose {
-			fmt.Println("Uploaded to", url)
-		}
+		Info.Println("Uploaded to", url)
+
 	}
 
 	return buffer, nil
@@ -191,9 +199,7 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 	barmax := float32(80.0)
 
 	// Output!!
-	if verbose {
-		buffer.WriteString("\nReviewer Stats\n\n")
-	}
+	buffer.WriteString("\nReviewer Stats\n\n")
 	for _, revStat := range revStats {
 		bar := int((barmax / float32(max)) * float32(revStat.Count))
 		percentage := float32(revStat.Count) / float32(count) * 100.0
@@ -223,9 +229,7 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 			return buffer, err
 		}
 
-		if verbose {
-			fmt.Println("Uploaded to", url)
-		}
+		Info.Println("Uploaded to", url)
 	}
 
 	return buffer, nil
@@ -234,7 +238,7 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 // ================================================================================================
 // Http
 func rootHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Called!!!!")
+	Info.Println("Root handler called!!!!")
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Welcome to DevOps tools from @abhinaba\nUse /pr and /wit\n"))
@@ -243,7 +247,7 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 func prHandler(w http.ResponseWriter, r *http.Request) {
 	prCount, err := getIntQueryParam("count", w, r, defaultPrCount)
 	if err != nil {
-		fmt.Printf("Error!! %v %v\n", r.URL, err)
+		Error.Printf("Error!! %v %v\n", r.URL, err)
 		return
 	}
 
