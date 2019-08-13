@@ -46,15 +46,32 @@ See the command line help
 
 To start the server in verbose mode on port 8080
 ```bash
-./devops -v -port 8080
+./devops -v -sem -port 8080
 ```
 
 To run using the docker container
 ```bash
-docker run -it --rm -p 80:80 -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT -e AZURE_STORAGE_ACCESS_KEY devops:0.1 /devops -v -port 80
+docker run -it --rm -p 80:80 -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT -e AZURE_STORAGE_ACCESS_KEY devops:0.1
 
 ```
 
+To run using Azure Container services
+```bash
+# login and create ACI
+az login
+az account set --subscription a18f525d-a6ac-47bd-bada-98c45b42486e
+az container create --resource-group DevAbhiRG --name devopsaci --image abhinababasu.azurecr.io/devops:latest --restart-policy OnFailure --environment-variables 'AZUREDEVOPS_ACCOUNT'='account e.g.msazure' 'AZUREDEVOPS_PROJECT'='Project e.g. One' 'AZUREDEVOPS_TOKEN'='your token' 'AZUREDEVOPS_REPO'='My cool repo' 'AZURE_STORAGE_ACCOUNT'='My account'  'AZURE_STORAGE_ACCESS_KEY'='key' --ports 80 --cpu 1 --memory 1  --dns-name-label abhidevops
+
+# list the container
+az container show --resource-group DevAbhiRG --name devopsaci --query "{FQDN:ipAddress.fqdn,ProvisioningState:provisioningState}" --out table
+
+# See Logs
+az container logs --resource-group DevAbhiRG --name devopsaci 
+
+# or directly attach the console
+az container attach --resource-group DevAbhiRG --name devopsaci 
+
+```
 Using the API
 -------------
 Call the API to get Pull request stats

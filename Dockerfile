@@ -12,4 +12,4 @@ COPY --from=builder /app/devops .
 COPY --from=builder /app/luxisr.ttf .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-CMD ["/devops", "-h"]
+CMD ["/devops", "-v", "-port", "80", "-sem"]
