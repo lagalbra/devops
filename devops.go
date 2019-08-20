@@ -238,7 +238,7 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 // Http
 
 func showRequest(r *http.Request) {
-	Info.Printf("Request for %v from %s(%s)", r.RequestURI, r.RemoteAddr, r.UserAgent())
+	Info.Printf("Request for %s from %s(%s)", r.RequestURI, r.RemoteAddr, r.UserAgent())
 }
 
 func rootHandler(w http.ResponseWriter, r *http.Request) {
