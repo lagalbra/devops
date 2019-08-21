@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"strconv"
 	"time"
 
 	"github.com/llgcode/draw2d"
@@ -157,22 +158,33 @@ func drawEpicStat(gc *draw2dimg.GraphicContext, es EpicStat, maxCount int, x, y,
 	barH := 15.0
 
 	w -= 20.0 // actual width to use
-	barW := (w / float64(maxCount)) * float64(es.Done)
-	drawRect(gc, x, y, barW, barH, color.Black, WitDoneColor)
-	x += barW
+	if es.Done > 0 {
+		barW := (w / float64(maxCount)) * float64(es.Done)
+		drawRect(gc, x, y, barW, barH, color.Black, WitDoneColor)
+		centerInRect(gc, strconv.Itoa(es.Done), x, y, barW, barH)
+		x += barW
+	}
 
-	barW = (w / float64(maxCount)) * float64(es.InProgress)
-	drawRect(gc, x, y, barW, barH, color.Black, WitInProgressColor)
-	x += barW
+	if es.InProgress > 0 {
+		barW := (w / float64(maxCount)) * float64(es.InProgress)
+		drawRect(gc, x, y, barW, barH, color.Black, WitInProgressColor)
+		centerInRect(gc, strconv.Itoa(es.InProgress), x, y, barW, barH)
+		x += barW
+	}
 
-	barW = (w / float64(maxCount)) * float64(es.NotDone)
-	drawRect(gc, x, y, barW, barH, color.Black, WitNotDoneColor)
-	x += barW
+	if es.NotDone > 0 {
+		barW := (w / float64(maxCount)) * float64(es.NotDone)
+		drawRect(gc, x, y, barW, barH, color.Black, WitNotDoneColor)
+		centerInRect(gc, strconv.Itoa(es.NotDone), x, y, barW, barH)
+		x += barW
+	}
 
-	barW = (w / float64(maxCount)) * float64(es.Unknown)
-	drawRect(gc, x, y, barW, barH, color.Black, WitUnKnownColor)
-	x += barW
-
+	if es.Unknown > 0 {
+		barW := (w / float64(maxCount)) * float64(es.Unknown)
+		drawRect(gc, x, y, barW, barH, color.Black, WitUnKnownColor)
+		centerInRect(gc, strconv.Itoa(es.Unknown), x, y, barW, barH)
+		x += barW
+	}
 	y += barH
 
 	return y
@@ -180,6 +192,24 @@ func drawEpicStat(gc *draw2dimg.GraphicContext, es EpicStat, maxCount int, x, y,
 
 // ================================================================================================
 // Common utilty
+func centerInRect(gc *draw2dimg.GraphicContext, s string, x, y, barW, barH float64) {
+	gc.SetFontSize(8)
+
+	// Get string width
+	l, t, r, b := gc.GetStringBounds(s)
+	strW := r - l
+	strH := b - t
+
+	// Calculate strings coodinates
+	midX := x + barW/2.0
+	midY := y + barH/2.0
+
+	strX := midX - strW/2
+	strY := midY + strH/2 // this is + because strY is the bottom of the text
+
+	gc.SetFillColor(color.RGBA{0, 0, 0, 255})
+	gc.FillStringAt(s, strX, strY)
+}
 
 func drawHeader(gc *draw2dimg.GraphicContext, header string, w, h float64) {
 	// Draw the border and title/header
