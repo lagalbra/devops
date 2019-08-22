@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
+	"time"
 )
 
 var verbose, noUpload bool
@@ -141,7 +142,8 @@ func showWorkStats(acc, proj, token string, azStorageAcc, azStorageKey string, e
 		buffer.WriteString("\n\n")
 	}
 
-	fileName := "epicstat.png"
+	// We support uploading 1 file per day
+	fileName := "epicstat_" + time.Now().Format("2006-01-02") + ".png"
 	err = saveWitStatImage(epicStats, fileName)
 	if err != nil {
 		return buffer, err
@@ -215,7 +217,8 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 		buffer.WriteString("]\n")
 	}
 
-	fileName := "revstat.png"
+	fileName := "revstat_" + time.Now().Format("2006-01-02") + ".png"
+
 	err := savePrStatImage(revStats, count, fileName)
 
 	if err != nil {
