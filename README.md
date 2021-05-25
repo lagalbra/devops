@@ -35,8 +35,8 @@ export AZUREDEVOPS_PROJECT=<Project e.g. One>
 export AZUREDEVOPS_TOKEN=<your Azure DevOps token>
 export AZUREDEVOPS_REPO=<My cool repo>
 
-export AZURE_STORAGE_ACCOUNT="<your account>"
-export AZURE_STORAGE_ACCESS_KEY="<key>"
+export AZURE_STORAGE_ACCOUNT="<your account>" # can be a dummy value if -nu is set
+export AZURE_STORAGE_ACCESS_KEY="<key>" # can be a dummy value if -nu is set
 ```
 
 See the command line help
@@ -51,8 +51,7 @@ To start the server in verbose mode on port 8080
 
 To run using the docker container
 ```bash
-docker run -it --rm -p 80:80 -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT -e AZURE_STORAGE_ACCESS_KEY devops:0.1
-
+docker run -d -p 80:80 -e AZUREDEVOPS_ACCOUNT -e AZUREDEVOPS_PROJECT -e AZUREDEVOPS_TOKEN -e AZUREDEVOPS_REPO -e AZURE_STORAGE_ACCOUNT -e AZURE_STORAGE_ACCESS_KEY devops:0.1
 ```
 
 To run using Azure Container services

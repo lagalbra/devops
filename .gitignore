@@ -15,3 +15,6 @@ devops
 
 # Output of the program
 *stat.png
+
+# hidden files
+.hidden*

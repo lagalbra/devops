@@ -1,4 +1,4 @@
-FROM golang:latest AS builder
+FROM golang:1.15.10 AS builder
 RUN mkdir /app
 WORKDIR /app
 COPY . .
@@ -12,4 +12,4 @@ COPY --from=builder /app/devops .
 COPY --from=builder /app/luxisr.ttf .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-CMD ["/devops", "-v", "-port", "80", "-sem"]
+CMD ["/devops", "-v", "-nu", "-port", "80", "-sem"]
