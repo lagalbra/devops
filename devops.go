@@ -74,8 +74,8 @@ func main() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/wit", witHandler)
 	http.HandleFunc("/pr", prHandler)
+	http.HandleFunc("/commits", commitHandler)
 	log.Fatal(http.ListenAndServe(addr, nil))
-
 }
 
 // ================================================================================================
@@ -237,6 +237,26 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 	return buffer, nil
 }
 
+// Request helpers about commits
+
+// lagalbra HERE use https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#on-a-branch-and-in-a-path
+func showCommitStats(
+	acc string,
+	proj string,
+	token string,
+	repo string,
+	branch string,
+	path string,
+	fromDate time.Time) (bytes.Buffer, error) {
+	r := NewRepo(acc, proj, token, repo)
+	r.Refresh(1) // lagalbra remove after testing
+
+	var buffer bytes.Buffer
+	buffer.WriteString("\nlagalbra test\n")
+
+	return buffer, nil
+}
+
 // ================================================================================================
 // Http
 
@@ -248,12 +268,12 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	showRequest(r)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Welcome to DevOps tools from @abhinaba\nUse /pr and /wit\n"))
+	w.Write([]byte("Welcome to DevOps tools from @abhinaba\nUse /pr and /wit and /commits\n"))
 }
 
 func prHandler(w http.ResponseWriter, r *http.Request) {
 	showRequest(r)
-	prCount, err := getIntQueryParam("count", w, r, defaultPrCount)
+	prCount, err := getIntQueryParam("count", w, r, defaultPrCount) // count will limit the number of PRs processed
 	if err != nil {
 		Error.Printf("Error!! %v %v\n", r.URL, err)
 		return
@@ -275,6 +295,71 @@ func prHandler(w http.ResponseWriter, r *http.Request) {
 	buffer.WriteString(fmt.Sprintf("Processed %v pull-requests\n", prCount))
 	w.WriteHeader(http.StatusOK)
 	w.Write(buffer.Bytes())
+	/*
+			lagalbra for reference, this outputs:
+
+		Reviewer Stats
+
+		[TEAM FOUNDATION]\SAP HANA Devs    4 (80.0%) [################################################################################]
+		                   Yunzi Zhang    2 (40.0%) [########################################----------------------------------------]
+		              Octavian Hornoiu    2 (40.0%) [########################################----------------------------------------]
+		               Laura Galbraith    2 (40.0%) [########################################----------------------------------------]
+		             Syeda Persia Aziz    1 (20.0%) [####################------------------------------------------------------------]
+		                   Page Bowers    1 (20.0%) [####################------------------------------------------------------------]
+		          Raghu Murthy (AZURE)    1 (20.0%) [####################------------------------------------------------------------]
+		             Kaushiik Baskaran    1 (20.0%) [####################------------------------------------------------------------]
+		      Jorge Villasenor Salinas    1 (20.0%) [####################------------------------------------------------------------]
+		Processed 5 pull-requests
+	*/
+}
+
+// Return information about commits on a particular branch
+func commitHandler(w http.ResponseWriter, r *http.Request) {
+	showRequest(r)
+	branch, err := getStringQueryParam("branch", w, r, "master")
+	if err != nil {
+		Error.Printf("Error!! %v %v\n", r.URL, err)
+		return
+	}
+
+	path, err := getStringQueryParam("path", w, r, "/")
+	if err != nil {
+		Error.Printf("Error!! %v %v\n", r.URL, err)
+		return
+	}
+
+	oneYearAgo := time.Now().Add(-365 * 24 * time.Hour)
+	expectedTimeFormat := "1/2/2006 03:04:05 PM" // expected format like "6/14/2018 12:00:00 AM", see https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#in-a-date-range
+	defaultFromDate := oneYearAgo.Format(expectedTimeFormat)
+	fromDateStr, err := getStringQueryParam("fromDate", w, r, defaultFromDate)
+	if err != nil {
+		Error.Printf("Error!! %v %v\n", r.URL, err)
+		return
+	}
+
+	fromDate, err := time.Parse(expectedTimeFormat, fromDateStr)
+	if err != nil {
+		Error.Printf("Error parsing input fromDate: %v %+v\n", r.URL, err)
+		writeError(w, fmt.Sprintf("fromDate should be of form %s", expectedTimeFormat))
+		return
+	}
+
+	if fromDate.Sub(time.Now()) > 0 {
+		writeError(w, "fromDate cannot be in future")
+		return
+	}
+
+	buffer, err := showCommitStats(devOpsAccount, devOpsProject, devOpsToken, devOpsRepo, branch, path, fromDate)
+	if err != nil {
+		str := fmt.Sprintf("Error fetching commit stats: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Write([]byte(str))
+	}
+
+	buffer.WriteString(fmt.Sprintf("Processed commits on branch %v, under path %v, after %v\n", branch, path, fromDate))
+	w.WriteHeader(http.StatusOK)
+	w.Write(buffer.Bytes())
 }
 
 func witHandler(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +376,6 @@ func witHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write(buffer.Bytes())
-
 }
 
 func getIntQueryParam(name string, w http.ResponseWriter, r *http.Request, defaultValue int) (int, error) {

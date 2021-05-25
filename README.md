@@ -113,3 +113,11 @@ Done:5 InProgress:1 ToDo:16 Unknown:0
 Done:5 InProgress:2 ToDo:14 Unknown:0
 ######==-------------------
 ```
+
+Call the API to get statistics on work items
+
+```
+$ # encode URL with %20 for spaces in timestamp for fromDate
+$ curl "localhost:80/commits?branch=master&fromDate=6/14/2020%2012:00:00%20AM&path=/.azuredevops"
+$ # lagalbra need to document what the command output looks like
+```
