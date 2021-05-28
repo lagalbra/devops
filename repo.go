@@ -43,7 +43,29 @@ type PullRequest struct {
 	Reviewers   []User             `json:"reviewers"`
 }
 
-type ReviewerStat struct {
+type CommitResponse struct {
+	Count   int      `json:"count"`
+	Commits []Commit `json:"value"`
+}
+
+type Commit struct {
+	ID     string     `json:"commitId"`
+	Author AuthorInfo `json:"author"`
+	// Ignored fields:
+	// 	committer AuthorInfo
+	// 	comment
+	// 	changeCounts struct
+	// 	changes array
+	// 	url
+}
+
+type AuthorInfo struct {
+	Name string `json:"name"`
+	Date string `json:"date"`
+	// email is also included, but will be ignored
+}
+
+type NameStat struct {
 	Name  string
 	Count int
 }
@@ -110,7 +132,7 @@ func (r *AzureDevopsRepo) Refresh(count int) {
 	return
 }
 
-func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]ReviewerStat, int) {
+func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]NameStat, int) {
 	Info.Printf("Processing %v completed PRs", count)
 	r.Refresh(count)
 	prs := r.PullRequests
@@ -130,9 +152,9 @@ func (r *AzureDevopsRepo) GetPullRequestReviewsByUser(count int) ([]ReviewerStat
 
 	// Sort the PRs by review count, by stuffing into a slice
 	max := 0
-	var reviewerStat []ReviewerStat
+	var reviewerStat []NameStat
 	for k, v := range review {
-		reviewerStat = append(reviewerStat, ReviewerStat{k, v})
+		reviewerStat = append(reviewerStat, NameStat{k, v})
 		if v > max {
 			max = v
 		}
@@ -170,6 +192,39 @@ func (r *AzureDevopsRepo) loadPullRequests(count int) error {
 
 	r.PullRequests = response.PullRequests
 	return nil
+}
+
+const commitFromDateExpectedTimeFormat = "1/2/2006 03:04:05 PM" // expected format like "6/14/2018 12:00:00 AM", see https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#in-a-date-range
+
+// https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#on-a-branch-and-in-a-path
+func (r *AzureDevopsRepo) GetCommitsByAuthor(
+	branch string,
+	path string,
+	fromDate time.Time) ([]Commit, error) {
+	params := url.Values{}
+	params.Add("searchCriteria.itemPath", path)
+	params.Add("searchCriteria.itemVersion.version", branch)
+	params.Add("searchCriteria.fromDate", fromDate.Format(commitFromDateExpectedTimeFormat))
+
+	URL := fmt.Sprintf(
+		"/_apis/git/repositories/%s/commits?%s&%s",
+		r.Repo.ID,
+		params.Encode(),
+		"api-version=6.0",
+	)
+
+	request, err := r.client.NewRequest("GET", URL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error creating request to repository: %+v", err)
+	}
+
+	var response CommitResponse
+	_, err = r.client.Execute(request, &response)
+	if err != nil {
+		return nil, fmt.Errorf("error executing request for commits: %+v", err)
+	}
+
+	return response.Commits, nil
 }
 
 func constructClientFromConfig(account, project, token string) *az.Client {

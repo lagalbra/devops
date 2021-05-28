@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -239,7 +240,8 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 
 // Request helpers about commits
 
-// lagalbra HERE use https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#on-a-branch-and-in-a-path
+// List commit authors by number of commits on the specified branch and path, since fromDate
+// lagalbra FINALLY I will write another script to call this API and process its output to look for owners.txt people who aren't in top 5, or at all
 func showCommitStats(
 	acc string,
 	proj string,
@@ -247,14 +249,45 @@ func showCommitStats(
 	repo string,
 	branch string,
 	path string,
-	fromDate time.Time) (bytes.Buffer, error) {
+	fromDate time.Time) (bytes.Buffer, int, error) {
 	r := NewRepo(acc, proj, token, repo)
-	r.Refresh(1) // lagalbra remove after testing
+	if r.err != nil {
+		return bytes.Buffer{}, 0, fmt.Errorf("error initializing repository connection: %+v", r.err)
+	}
 
+	commits, err := r.GetCommitsByAuthor(branch, path, fromDate) // lagalbra HERE debug responses to implement paging; right now it's limited to 100 Commits from a single call - test with curl "localhost:80/commits?branch=master&fromDate=5/14/2020%2012:00:00%20AM&path=/src/core"
+	if err != nil {
+		return bytes.Buffer{}, 0, fmt.Errorf("error getting commits: %+v", err)
+	}
+
+	// Count how many commits each author has
+	commitsPerAuthor := make(map[string]int)
+	for _, commit := range commits {
+		if _, present := commitsPerAuthor[commit.Author.Name]; !present {
+			commitsPerAuthor[commit.Author.Name] = 0
+		}
+
+		commitsPerAuthor[commit.Author.Name]++
+	}
+
+	// Sort the authors by commit count
+	var authorStats []NameStat
+	for author, commitCount := range commitsPerAuthor {
+		authorStats = append(authorStats, NameStat{author, commitCount})
+	}
+
+	sort.Slice(authorStats, func(i, j int) bool {
+		return authorStats[i].Count > authorStats[j].Count
+	})
+
+	// Write the descending list of authors by commit count to the buffer
 	var buffer bytes.Buffer
-	buffer.WriteString("\nlagalbra test\n")
+	buffer.WriteString("\nNumber of commits, descending:\n\n")
+	for _, authorStat := range authorStats {
+		buffer.WriteString(fmt.Sprintf("%s\t: %d commits\n", authorStat.Name, authorStat.Count))
+	}
 
-	return buffer, nil
+	return buffer, len(commits), nil
 }
 
 // ================================================================================================
@@ -295,22 +328,6 @@ func prHandler(w http.ResponseWriter, r *http.Request) {
 	buffer.WriteString(fmt.Sprintf("Processed %v pull-requests\n", prCount))
 	w.WriteHeader(http.StatusOK)
 	w.Write(buffer.Bytes())
-	/*
-			lagalbra for reference, this outputs:
-
-		Reviewer Stats
-
-		[TEAM FOUNDATION]\SAP HANA Devs    4 (80.0%) [################################################################################]
-		                   Yunzi Zhang    2 (40.0%) [########################################----------------------------------------]
-		              Octavian Hornoiu    2 (40.0%) [########################################----------------------------------------]
-		               Laura Galbraith    2 (40.0%) [########################################----------------------------------------]
-		             Syeda Persia Aziz    1 (20.0%) [####################------------------------------------------------------------]
-		                   Page Bowers    1 (20.0%) [####################------------------------------------------------------------]
-		          Raghu Murthy (AZURE)    1 (20.0%) [####################------------------------------------------------------------]
-		             Kaushiik Baskaran    1 (20.0%) [####################------------------------------------------------------------]
-		      Jorge Villasenor Salinas    1 (20.0%) [####################------------------------------------------------------------]
-		Processed 5 pull-requests
-	*/
 }
 
 // Return information about commits on a particular branch
@@ -329,18 +346,17 @@ func commitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	oneYearAgo := time.Now().Add(-365 * 24 * time.Hour)
-	expectedTimeFormat := "1/2/2006 03:04:05 PM" // expected format like "6/14/2018 12:00:00 AM", see https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#in-a-date-range
-	defaultFromDate := oneYearAgo.Format(expectedTimeFormat)
+	defaultFromDate := oneYearAgo.Format(commitFromDateExpectedTimeFormat)
 	fromDateStr, err := getStringQueryParam("fromDate", w, r, defaultFromDate)
 	if err != nil {
 		Error.Printf("Error!! %v %v\n", r.URL, err)
 		return
 	}
 
-	fromDate, err := time.Parse(expectedTimeFormat, fromDateStr)
+	fromDate, err := time.Parse(commitFromDateExpectedTimeFormat, fromDateStr)
 	if err != nil {
 		Error.Printf("Error parsing input fromDate: %v %+v\n", r.URL, err)
-		writeError(w, fmt.Sprintf("fromDate should be of form %s", expectedTimeFormat))
+		writeError(w, fmt.Sprintf("fromDate should be of form %s", commitFromDateExpectedTimeFormat))
 		return
 	}
 
@@ -349,7 +365,7 @@ func commitHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	buffer, err := showCommitStats(devOpsAccount, devOpsProject, devOpsToken, devOpsRepo, branch, path, fromDate)
+	buffer, commitCount, err := showCommitStats(devOpsAccount, devOpsProject, devOpsToken, devOpsRepo, branch, path, fromDate)
 	if err != nil {
 		str := fmt.Sprintf("Error fetching commit stats: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -357,7 +373,7 @@ func commitHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(str))
 	}
 
-	buffer.WriteString(fmt.Sprintf("Processed commits on branch %v, under path %v, after %v\n", branch, path, fromDate))
+	buffer.WriteString(fmt.Sprintf("\nProcessed %d commits on branch %v, under path %v, after %v\n", commitCount, branch, path, fromDate))
 	w.WriteHeader(http.StatusOK)
 	w.Write(buffer.Bytes())
 }

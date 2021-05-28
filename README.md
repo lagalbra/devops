@@ -118,6 +118,14 @@ Call the API to get statistics on work items
 
 ```
 $ # encode URL with %20 for spaces in timestamp for fromDate
-$ curl "localhost:80/commits?branch=master&fromDate=6/14/2020%2012:00:00%20AM&path=/.azuredevops"
-$ # lagalbra need to document what the command output looks like
+$ curl "localhost:80/commits?branch=dev&fromDate=6/14/2020%2012:00:00%20AM&path=/src/cmd/program"
+
+Number of commits, descending:
+
+Hermyone Gregory : 12 commits
+Ronald Wazlib    : 1 commits
+Norman Lucktea   : 1 commits
+Shirley Gringot  : 1 commits
+
+Processed 15 commits on branch dev, under path /src/cmd/program, after 2020-06-14 00:00:00 +0000 UTC
 ```

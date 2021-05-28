@@ -20,7 +20,7 @@ var (
 
 // ================================================================================================
 // PR related images
-func savePrStatImage(reviewers []ReviewerStat, prCount int, fileName string) error {
+func savePrStatImage(reviewers []NameStat, prCount int, fileName string) error {
 	Info.Println("Generating image ", fileName)
 
 	nReviewers := len(reviewers)
