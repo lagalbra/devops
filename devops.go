@@ -241,7 +241,6 @@ func showPrStats(acc, proj, token, repo string, count int, azStorageAcc, azStora
 // Request helpers about commits
 
 // List commit authors by number of commits on the specified branch and path, since fromDate
-// lagalbra FINALLY I will write another script to call this API and process its output to look for owners.txt people who aren't in top 5, or at all
 func showCommitStats(
 	acc string,
 	proj string,
@@ -255,7 +254,7 @@ func showCommitStats(
 		return bytes.Buffer{}, 0, fmt.Errorf("error initializing repository connection: %+v", r.err)
 	}
 
-	commits, err := r.GetCommitsByAuthor(branch, path, fromDate) // lagalbra HERE debug responses to implement paging; right now it's limited to 100 Commits from a single call - test with curl "localhost:80/commits?branch=master&fromDate=5/14/2020%2012:00:00%20AM&path=/src/core"
+	commits, err := r.GetCommitsByAuthor(branch, path, fromDate)
 	if err != nil {
 		return bytes.Buffer{}, 0, fmt.Errorf("error getting commits: %+v", err)
 	}

@@ -205,6 +205,7 @@ func (r *AzureDevopsRepo) GetCommitsByAuthor(
 	params.Add("searchCriteria.itemPath", path)
 	params.Add("searchCriteria.itemVersion.version", branch)
 	params.Add("searchCriteria.fromDate", fromDate.Format(commitFromDateExpectedTimeFormat))
+	params.Add("searchCriteria.$top", "1000") // set this very high because pagination is not explained: https://docs.microsoft.com/en-us/rest/api/azure/devops/git/commits/get%20commits?view=azure-devops-rest-6.0#paging
 
 	URL := fmt.Sprintf(
 		"/_apis/git/repositories/%s/commits?%s&%s",
@@ -219,7 +220,7 @@ func (r *AzureDevopsRepo) GetCommitsByAuthor(
 	}
 
 	var response CommitResponse
-	_, err = r.client.Execute(request, &response)
+	_, err := r.client.Execute(request, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error executing request for commits: %+v", err)
 	}
