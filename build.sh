@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 #DoNotBuildImage=0
 Publish=0
 
@@ -18,7 +20,7 @@ VERSION=0.1
 CONTAINER=devops
 
 echo Build Sources
-go build 
+go build
 
 echo Building image $CONTAINER:$VERSION
 docker build -t $CONTAINER:$VERSION .

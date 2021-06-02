@@ -220,7 +220,7 @@ func (r *AzureDevopsRepo) GetCommitsByAuthor(
 	}
 
 	var response CommitResponse
-	_, err := r.client.Execute(request, &response)
+	_, err = r.client.Execute(request, &response)
 	if err != nil {
 		return nil, fmt.Errorf("error executing request for commits: %+v", err)
 	}
